@@ -4,16 +4,16 @@
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
 
-#include "Layer.h"
+#include "Conv.h"
 #include "Helper.h"
 
 int main() {
-	// Parse data, construct network, train and test network ...
+	// Parse image data, construct network, train and test network ...
 	int batch_size = 1;
 	int channels = 3;
 	int filter_size = 3;
 	int stride = 1;
-	int num_kernels = 3;
+	int num_kernels = 1;
 
 	Eigen::Tensor<float, 4> input_tensor(batch_size, channels, 5, 5);
 	input_tensor.setConstant(1);

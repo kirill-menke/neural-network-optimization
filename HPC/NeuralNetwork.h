@@ -12,11 +12,11 @@ class NeuralNetwork {
 	std::vector<Layer> layers;
 	Layer& loss_layer;
 	Layer& data_layer;
-
+  
 
 public:
 	
-	NeuralNetwork(Optimizer& optimizer, Initializer& initializer, Layer& loss_layer, Layer& data_layer) :
+	NeuralNetwork(Optimizer optimizer, Initializer initializer, Layer loss_layer, Layer data_layer) :
 		optimizer(optimizer), initializer(initializer), loss_layer(loss_layer), data_layer(data_layer) {}
 
 	float forward();
