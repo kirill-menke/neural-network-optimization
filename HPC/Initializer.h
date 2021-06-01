@@ -7,7 +7,7 @@ class Initializer {
 	virtual Eigen::Tensor<float, 4> initialize(std::tuple<> shape) = 0;
 };
 
-class UniformRandom : Initializer {
+class UniformRandom : public Initializer {
 public:
 	Eigen::Tensor<float, 4> initialize(std::tuple<> shape) {
 		return Eigen::Tensor<float, 4>();

@@ -1,32 +1,35 @@
 #pragma once
 #include <vector>
 
+#include <unsupported/Eigen/CXX11/Tensor>
+
 #include "Layer.h"
 #include "Optimizer.h"
 #include "Initializer.h"
 
 class NeuralNetwork {
-	Optimizer& optimizer;
-	Initializer& initializer;
+	std::unique_ptr<Optimizer> optimizer;
+	std::unique_ptr<Initializer> initializer;
 	std::vector<float> losses;
-	std::vector<Layer> layers;
-	Layer& loss_layer;
-	Layer& data_layer;
+	std::vector<std::unique_ptr<Layer>> layers;
+
+	Eigen::Tensor<float, 4> train_data;
+	std::vector<int> train_labels;
   
 
 public:
 	
-	NeuralNetwork(Optimizer optimizer, Initializer initializer, Layer loss_layer, Layer data_layer) :
-		optimizer(optimizer), initializer(initializer), loss_layer(loss_layer), data_layer(data_layer) {}
+	NeuralNetwork(std::unique_ptr<Optimizer> optimizer, std::unique_ptr<Initializer> initializer, Eigen::Tensor<float, 4> train_data, std::vector<int> train_labels) :
+		optimizer(std::move(optimizer)), initializer(std::move(initializer)), train_data(train_data), train_labels(train_labels){}
 
 	float forward();
 
 	void backward();
 
-	void appendLayer(Layer& layer);
+	void appendLayer(std::unique_ptr<Layer> layer);
 
-	void train();
+	void train(int iterations);
 
-	std::vector<float> test();
+	Eigen::Tensor<float, 4> test(Eigen::Tensor<float, 4> test_data);
 
 };

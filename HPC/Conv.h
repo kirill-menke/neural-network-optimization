@@ -8,10 +8,9 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 
 #include "Layer.h"
-#include "Initializer.h"
 #include "Helper.h"
 
-class Conv : Layer {
+class Conv : public Layer {
 	Eigen::Tensor<float, 4> weights;
 	Eigen::Tensor<float, 4> r_weights;
 	Eigen::VectorXf bias;
@@ -21,7 +20,7 @@ class Conv : Layer {
 	int channels;
 	int filter_size;
 
-	Eigen::Tensor<float, 4> input_tensor;
+	Eigen::Tensor<float, 4>* input_tensor;
 
 public:
 
@@ -52,12 +51,12 @@ public:
 		}
 
 		// Reverse kernels for convolution
-		Eigen::array<bool, 4> reverse({ false, true, true, true });
+		Eigen::array<bool, 4> reverse({ false, false, true, true });
 		r_weights = weights.reverse(reverse);
 	}
 
-	Eigen::Tensor<float, 4> forward(Eigen::Tensor<float, 4> input_tensor) {
-		this->input_tensor = input_tensor;
+	Eigen::Tensor<float, 4> forward(Eigen::Tensor<float, 4>& input_tensor) {
+		this->input_tensor = &input_tensor;
 		auto input_dims = input_tensor.dimensions();
 		int spatial_pad = static_cast<int>(filter_size / 2);
 		int out_x = static_cast<int>((input_dims[2] - filter_size + 2 * spatial_pad) / stride + 1);
@@ -77,14 +76,10 @@ public:
 	}
 
 
-	Eigen::Tensor<float, 4> backward(Eigen::Tensor<float, 4> error_tensor) {
-		// TODO
+	Eigen::Tensor<float, 4> backward(Eigen::Tensor<float, 4>& error_tensor) {
+		// Next error tensor: Gradient w.r.t the different channels of the input
+
 		return Eigen::Tensor<float, 4>();
-	}
-
-
-	void initialize(Initializer& initializer) {
-
 	}
 
 

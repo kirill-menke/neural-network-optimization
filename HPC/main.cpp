@@ -1,29 +1,57 @@
 #pragma once
 #include <iostream>
 
+#include <memory>
+
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
 
+#include "NeuralNetwork.h"
+#include "Optimizer.h"
+#include "Initializer.h"
+#include "Pooling.h"
+#include "FullyConnected.h"
+#include "Flatten.h"
+#include "ReLU.h"
+#include "SoftMax.h"
+#include "Loss.h"
+#include "Layer.h"
 #include "Conv.h"
 #include "Helper.h"
 
 int main() {
 	// Parse image data, construct network, train and test network ...
-	int batch_size = 1;
-	int channels = 3;
-	int filter_size = 3;
-	int stride = 1;
-	int num_kernels = 1;
 
-	Eigen::Tensor<float, 4> input_tensor(batch_size, channels, 5, 5);
-	input_tensor.setConstant(1);
+	int iterations = 200;
+	float learning_rate = 0.01f;
 
-	printTensor(input_tensor);
+	Eigen::Tensor<float, 4> train_data;
+	std::vector<int> train_labels;
+	Eigen::Tensor<float, 4> test_data;
+	std::vector<int> test_labels;
 
-	Conv conv(num_kernels, channels, filter_size, stride);
-	auto output_tensor = conv.forward(input_tensor);
-	printTensor(output_tensor);
+	NeuralNetwork net(std::make_unique<Sgd>(learning_rate), std::make_unique<UniformRandom>(), train_data, train_labels);
+	
+	// Construct CNN
+	net.appendLayer(std::make_unique<Conv>(4, 3, 3, 1));		// kernels, channels, filter_size, stride
+	net.appendLayer(std::make_unique<ReLU>());
+	net.appendLayer(std::make_unique<Pooling>(2, 2));			// shape, stride 
+	net.appendLayer(std::make_unique<Flatten>());
+	net.appendLayer(std::make_unique<FullyConnected>(0, 0));	// input_dim, output_dim
+	net.appendLayer(std::make_unique<ReLU>());
+	net.appendLayer(std::make_unique<FullyConnected>(0, 0));
+	net.appendLayer(std::make_unique<SoftMax>());
+	// net.appendLayer(std::make_unique<CrossEntropyLoss>());
 
+	// Train network
+	net.train(iterations);
+	
+	// Test Network
+	Eigen::Tensor<float, 4> result = net.test(test_data);
+
+	// Calculate accuracy ...
 }
+
+
 
 

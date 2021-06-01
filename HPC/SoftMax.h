@@ -3,8 +3,8 @@
 
 #include "Layer.h"
 
-class ReLU : public Layer {
-	
+class SoftMax : public Layer {
+
 	Eigen::Tensor<float, 4> forward(Eigen::Tensor<float, 4>& input_tensor) {
 		return Eigen::Tensor<float, 4>();
 	}
