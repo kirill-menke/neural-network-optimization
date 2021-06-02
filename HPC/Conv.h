@@ -77,7 +77,26 @@ public:
 
 
 	Eigen::Tensor<float, 4> backward(Eigen::Tensor<float, 4>& error_tensor) {
+		auto input_dims = input_tensor->dimensions();
+		auto error_dims = error_tensor.dimensions();
+
 		// Next error tensor: Gradient w.r.t the different channels of the input
+		Eigen::Tensor<float, 4> upsampled_error_tensor(input_dims[0], num_kernels, input_dims[2], input_dims[3]);
+
+		for (int i = 0; i < error_dims[0]; i++) {
+			for (int j = 0; j < error_dims[1]; j++) {
+				for (int x = 0, s_x = 0; x < error_dims[2]; x++, s_x+=stride) {
+					for (int y = 0, s_y = 0; y < error_dims[3]; y++, s_y+=stride) {
+						upsampled_error_tensor(i, j, s_x, s_y) = error_tensor(i, j, x, y);
+					}
+				}
+			}
+		}
+
+		// Reverse Tensor
+		Eigen::array<bool, 4> reverse({ false, true, false, false });
+		Eigen::Tensor<int, 4> reversed_error_tensor = upsampled_error_tensor.reverse(reverse);
+
 
 		return Eigen::Tensor<float, 4>();
 	}
@@ -94,8 +113,8 @@ private:
 
 	void correlate3D(const Eigen::Tensor<float, 4>& input_tensor, Eigen::Tensor<float, 4>& feature_maps, Eigen::Tensor<float, 4>& kernels) {
 		auto output_dims = feature_maps.dimensions();
-		feature_maps.setZero();
 		int spatial_pad = static_cast<int>(filter_size / 2);
+		feature_maps.setZero();
 
 		for (int i = 0; i < output_dims[0]; i++) {
 			for (int j = 0; j < output_dims[1]; j++) {
