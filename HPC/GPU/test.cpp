@@ -23,15 +23,15 @@ int main() {
 		filterHeight);
 
 	convLayer.filters.moveToHost();
-	convLayer.filters(0, 0, 0, 0) = 1.;
+	convLayer.filters(0, 0, 0, 0) = 0.;
 	convLayer.filters(0, 0, 1, 0) = 1.;
-	convLayer.filters(0, 0, 2, 0) = 1.;
-	convLayer.filters(0, 0, 0, 1) = 1.;
+	convLayer.filters(0, 0, 2, 0) = 2.;
+	convLayer.filters(0, 0, 0, 1) = 0.;
 	convLayer.filters(0, 0, 1, 1) = 1.;
-	convLayer.filters(0, 0, 2, 1) = 1.;
-	convLayer.filters(0, 0, 0, 2) = 1.;
+	convLayer.filters(0, 0, 2, 1) = 2.;
+	convLayer.filters(0, 0, 0, 2) = 0.;
 	convLayer.filters(0, 0, 1, 2) = 1.;
-	convLayer.filters(0, 0, 2, 2) = 1.;
+	convLayer.filters(0, 0, 2, 2) = 2.;
 	convLayer.filters.dump(stdout, "Filter");
 	convLayer.filters.moveToDevice();
 
@@ -68,6 +68,38 @@ int main() {
 	imageOut.moveToHost();
 	imageOut.dump(stdout, "Output Image");
 
+	Tensor<float, 4> error_tensor(Tensor<float, 4>::ON_CPU, { batchSize, outputChannels, imageWidth, imageHeight });
+	error_tensor(0, 0, 0, 0) = 0.;
+	error_tensor(0, 0, 1, 0) = 1.;
+	error_tensor(0, 0, 2, 0) = 2.;
+	error_tensor(0, 0, 3, 0) = 3.;
+	error_tensor(0, 0, 4, 0) = 4.;
+	error_tensor(0, 0, 0, 1) = 5.;
+	error_tensor(0, 0, 1, 1) = 6.;
+	error_tensor(0, 0, 2, 1) = 7.;
+	error_tensor(0, 0, 3, 1) = 8.;
+	error_tensor(0, 0, 4, 1) = 9.;
+	error_tensor(0, 0, 0, 2) = 10.;
+	error_tensor(0, 0, 1, 2) = 11.;
+	error_tensor(0, 0, 2, 2) = 12.;
+	error_tensor(0, 0, 3, 2) = 13.;
+	error_tensor(0, 0, 4, 2) = 14.;
+	error_tensor(0, 0, 0, 3) = 15.;
+	error_tensor(0, 0, 1, 3) = 16.;
+	error_tensor(0, 0, 2, 3) = 17.;
+	error_tensor(0, 0, 3, 3) = 18.;
+	error_tensor(0, 0, 4, 3) = 19.;
+	error_tensor(0, 0, 0, 4) = 20.;
+	error_tensor(0, 0, 1, 4) = 21.;
+	error_tensor(0, 0, 2, 4) = 22.;
+	error_tensor(0, 0, 3, 4) = 23.;
+	error_tensor(0, 0, 4, 4) = 24.;
+	error_tensor.dump(stdout, "Error Tensor");
+	error_tensor.moveToDevice();
+
+	Tensor<float, 4> next_error_tensor = convLayer.backward(error_tensor);
+	next_error_tensor.moveToHost();
+	next_error_tensor.dump(stdout, "Next Error Tensor");
 
 	return EXIT_SUCCESS;
 }

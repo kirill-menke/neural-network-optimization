@@ -9,15 +9,15 @@ class GPUConv {
 public:
 	GPUConv(
 		int inputChannels,
-		int inputWidth,
-		int inputHeight,
+		int imageWidth,
+		int imageHeight,
 		int outputChannels,
 		int filterWidth,
 		int filterHeight
 	):
 		inputChannels(inputChannels),
-		inputWidth(inputWidth),
-		inputHeight(inputHeight),
+		imageWidth(imageWidth),
+		imageHeight(imageHeight),
 		outputChannels(outputChannels),
 		filterWidth(filterWidth),
 		filterHeight(filterHeight),
@@ -27,8 +27,8 @@ public:
 	virtual Tensor<float, 4> backward(Tensor<float, 4> &error_tensor);
 
 	int inputChannels;
-	int inputWidth;
-	int inputHeight;
+	int imageWidth;
+	int imageHeight;
 	int outputChannels;
 	int filterWidth;
 	int filterHeight;
