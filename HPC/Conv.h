@@ -95,7 +95,7 @@ public:
 
 		// Reverse Tensor
 		Eigen::array<bool, 4> reverse({ false, true, false, false });
-		Eigen::Tensor<int, 4> reversed_error_tensor = upsampled_error_tensor.reverse(reverse);
+		Eigen::Tensor<float, 4> reversed_error_tensor = upsampled_error_tensor.reverse(reverse);
 
 
 		return Eigen::Tensor<float, 4>();
