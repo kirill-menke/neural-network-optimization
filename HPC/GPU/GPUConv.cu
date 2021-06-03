@@ -80,7 +80,7 @@ Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 	assert(input_tensor.dim(2) == inputWidth);
 	assert(input_tensor.dim(3) == inputHeight);
 
-	Tensor<float, 4> padded_input(Tensor<float, 4>::ON_GPU, {
+	this->padded_input = new Tensor<float, 4>(Tensor<float, 4>::ON_GPU, {
 		batchSize,
 		inputChannels,
 		inputWidth + 2 * (filterWidth / 2),
@@ -88,9 +88,9 @@ Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 	});
 
 	{
-		dim3 gridDim = getGridDim(padded_input.dim(2), padded_input.dim(3), batchSize);
-		dim3 blockDim = getBlockDim(padded_input.dim(2), padded_input.dim(3), batchSize);
-		add_padding<<<gridDim, blockDim>>>(input_tensor, padded_input, filterWidth / 2, filterHeight / 2);
+		dim3 gridDim = getGridDim(padded_input->dim(2), padded_input->dim(3), batchSize);
+		dim3 blockDim = getBlockDim(padded_input->dim(2), padded_input->dim(3), batchSize);
+		add_padding<<<gridDim, blockDim>>>(input_tensor, *padded_input, filterWidth / 2, filterHeight / 2);
 	}
 
 	Tensor<float, 4> output_tensor(Tensor<float, 4>::ON_GPU, {
@@ -103,13 +103,48 @@ Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 	{
 		dim3 gridDim = getGridDim(inputWidth, inputHeight, batchSize);
 		dim3 blockDim = getBlockDim(inputWidth, inputHeight, batchSize);
-		convolution<false><<<gridDim, blockDim>>>(padded_input, output_tensor, filters);
+		convolution<false><<<gridDim, blockDim>>>(*padded_input, output_tensor, filters);
 	}
 
 	return output_tensor;
 }
 
 Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
-	assert("TODO" && 0);
-	return error_tensor;
+	int batchSize = error_tensor.dim(0);
+	assert(error_tensor.dim(1) == inputChannels);
+	assert(error_tensor.dim(2) == inputWidth);
+	assert(error_tensor.dim(3) == inputHeight);
+	assert(padded_input->dim(0) == batchSize);
+
+	Tensor<float, 4> padded_error_tensor(Tensor<float, 4>::ON_GPU, {
+		batchSize,
+		outputChannels,
+		inputWidth + 2 * (filterWidth / 2),
+		inputHeight + 2 * (filterHeight / 2)
+	});
+
+	{
+		dim3 gridDim = getGridDim(padded_error_tensor.dim(2), padded_error_tensor.dim(3), batchSize);
+		dim3 blockDim = getBlockDim(padded_error_tensor.dim(2), padded_error_tensor.dim(3), batchSize);
+		add_padding<<<gridDim, blockDim>>>(error_tensor, padded_error_tensor, filterWidth / 2, filterHeight / 2);
+	}
+
+
+	Tensor<float, 4> next_error_tensor(Tensor<float, 4>::ON_GPU, {
+		batchSize,
+		inputChannels,
+		inputWidth,
+		inputHeight
+	});
+
+	{
+		dim3 gridDim = getGridDim(inputWidth, inputHeight, batchSize);
+		dim3 blockDim = getBlockDim(inputWidth, inputHeight, batchSize);
+		convolution<true><<<gridDim, blockDim>>>(padded_error_tensor, next_error_tensor, filters);
+	}
+
+	this->padded_input->free();
+	delete this->padded_input;
+	this->padded_input = nullptr;
+	return next_error_tensor;
 }

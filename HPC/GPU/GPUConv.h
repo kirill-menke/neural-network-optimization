@@ -33,5 +33,8 @@ public:
 	int filterWidth;
 	int filterHeight;
 	Tensor<float, 4> filters;
+
+private:
+	Tensor<float, 4> *padded_input = nullptr;
 };
 

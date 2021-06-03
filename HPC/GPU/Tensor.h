@@ -51,7 +51,7 @@ public:
 	}
 
 	void free() {
-		if (this->data != nullptr) free(this->data);
+		if (this->data != nullptr) ::free(this->data);
 		if (this->dev_data != nullptr) cudaErrchk(cudaFree(this->dev_data));
 		this->data = nullptr;
 		this->dev_data = nullptr;
