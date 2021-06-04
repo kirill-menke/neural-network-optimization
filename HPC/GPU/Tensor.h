@@ -50,24 +50,18 @@ public:
 			this->total_size * sizeof(Scalar), cudaMemcpyDeviceToHost));
 	}
 
-	void free() {
+	void destroy() {
 		if (this->data != nullptr) ::free(this->data);
 		if (this->dev_data != nullptr) cudaErrchk(cudaFree(this->dev_data));
 		this->data = nullptr;
 		this->dev_data = nullptr;
 	}
 
-	void dump(FILE *f, const char* msg = "") {
+	void dump4D(FILE *f, const char* msg = "") {
 		fprintf(f, "Tensor<%lld>[", Rank);
 		for (int i = 0; i < Rank; i++)
 			fprintf(f, i == Rank - 1 ? "%d" : "%d, ", this->dims[i]);
 		fprintf(f, "]: %s\n", msg);
-
-		if (Rank != 4) {
-			for (int i = 0; i < this->total_size; i++)
-				fprintf(f, i == this->total_size - 1 ? "%f\n" : "%f, ", this->data[i]);
-			return;
-		}
 
 		for (int i = 0; i < this->dims[0]; i++) {
 			fprintf(f, "Dim 0: %d:\n", i);
@@ -83,6 +77,16 @@ public:
 			}
 			fprintf(f, "\n");
 		}
+	}
+	
+	void dump(FILE *f, const char* msg = "") {
+		fprintf(f, "Tensor<%lld>[", Rank);
+		for (int i = 0; i < Rank; i++)
+			fprintf(f, i == Rank - 1 ? "%d" : "%d, ", this->dims[i]);
+		fprintf(f, "]: %s\n", msg);
+
+		for (int i = 0; i < this->total_size; i++)
+			fprintf(f, i == this->total_size - 1 ? "%f\n" : "%f, ", this->data[i]);
 	}
 
 	__host__ __device__
@@ -102,6 +106,16 @@ public:
 		return this->dev_data[idx];
 		#else
 		return this->data[idx];
+		#endif
+	}
+
+	__host__ __device__
+	Scalar& operator() (int i) {
+		static_assert(Rank == 1);
+		#ifdef  __CUDA_ARCH__
+		return this->dev_data[i];
+		#else
+		return this->data[i];
 		#endif
 	}
 

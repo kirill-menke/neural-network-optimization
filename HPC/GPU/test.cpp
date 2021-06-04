@@ -128,18 +128,23 @@ int main() {
 		strideX,
 		strideY);
 
-	convLayer.filters.moveToHost();
-	convLayer.filters(0, 0, 0, 0) = 0.;
-	convLayer.filters(0, 0, 1, 0) = 1.;
-	convLayer.filters(0, 0, 2, 0) = 2.;
-	convLayer.filters(0, 0, 0, 1) = 0.;
-	convLayer.filters(0, 0, 1, 1) = 1.;
-	convLayer.filters(0, 0, 2, 1) = 2.;
-	convLayer.filters(0, 0, 0, 2) = 0.;
-	convLayer.filters(0, 0, 1, 2) = 1.;
-	convLayer.filters(0, 0, 2, 2) = 2.;
-	convLayer.filters.dump(stdout, "Filter");
-	convLayer.filters.moveToDevice();
+	convLayer.weights.moveToHost();
+	convLayer.weights(0, 0, 0, 0) = 0.;
+	convLayer.weights(0, 0, 1, 0) = 1.;
+	convLayer.weights(0, 0, 2, 0) = 2.;
+	convLayer.weights(0, 0, 0, 1) = 0.;
+	convLayer.weights(0, 0, 1, 1) = 1.;
+	convLayer.weights(0, 0, 2, 1) = 2.;
+	convLayer.weights(0, 0, 0, 2) = 0.;
+	convLayer.weights(0, 0, 1, 2) = 1.;
+	convLayer.weights(0, 0, 2, 2) = 2.;
+	convLayer.weights.dump4D(stdout, "Filter");
+	convLayer.weights.moveToDevice();
+
+	convLayer.bias.moveToHost();
+	convLayer.bias(0) = 0.;
+	convLayer.bias.dump(stdout, "Bias");
+	convLayer.bias.moveToDevice();
 
 	Tensor<float, 4> imageIn(Tensor<float, 4>::ON_CPU, { batchSize, inputChannels, imageWidth, imageHeight });
 	imageIn(0, 0, 0, 0) = 0.;
@@ -167,24 +172,24 @@ int main() {
 	imageIn(0, 0, 2, 4) = 22.;
 	imageIn(0, 0, 3, 4) = 23.;
 	imageIn(0, 0, 4, 4) = 24.;
-	imageIn.dump(stdout, "Input Image");
+	imageIn.dump4D(stdout, "Input Image");
 	imageIn.moveToDevice();
 
 	Tensor<float, 4> imageOut = convLayer.forward(imageIn);
 	imageOut.moveToHost();
-	imageOut.dump(stdout, "Output Image");
+	imageOut.dump4D(stdout, "Output Image");
 
 	Tensor<float, 4> error_tensor(Tensor<float, 4>::ON_CPU, { batchSize, outputChannels, imageWidth / strideX, imageHeight / strideY });
 	error_tensor(0, 0, 0, 0) = 0.;
 	error_tensor(0, 0, 1, 0) = 1.;
 	error_tensor(0, 0, 0, 1) = 2.;
 	error_tensor(0, 0, 1, 1) = 3.;
-	error_tensor.dump(stdout, "Error Tensor");
+	error_tensor.dump4D(stdout, "Error Tensor");
 	error_tensor.moveToDevice();
 
 	Tensor<float, 4> next_error_tensor = convLayer.backward(error_tensor);
 	next_error_tensor.moveToHost();
-	next_error_tensor.dump(stdout, "Next Error Tensor");
+	next_error_tensor.dump4D(stdout, "Next Error Tensor");
 
 	return EXIT_SUCCESS;
 }
