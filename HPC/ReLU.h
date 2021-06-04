@@ -1,15 +1,14 @@
 #pragma once
+
 #include <unsupported/Eigen/CXX11/Tensor>
 
-#include "Layer.h"
+#include <memory>
 
-class ReLU : public Layer {
-	
-	Eigen::Tensor<float, 4> forward(Eigen::Tensor<float, 4>& input_tensor) {
-		return Eigen::Tensor<float, 4>();
-	}
+class ReLU {
+public:
+	std::shared_ptr<Eigen::Tensor<float, 4>> forward(std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor);
+	std::shared_ptr<Eigen::Tensor<float, 4>> backward(std::shared_ptr<Eigen::Tensor<float, 4>> error_tensor);
 
-	Eigen::Tensor<float, 4> backward(Eigen::Tensor<float, 4>& error_tensor) {
-		return Eigen::Tensor<float, 4>();
-	}
+private:
+	std::shared_ptr<Eigen::Tensor<float, 4>> output_tensor;
 };
