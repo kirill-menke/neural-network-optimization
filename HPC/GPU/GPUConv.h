@@ -13,7 +13,9 @@ public:
 		int imageHeight,
 		int outputChannels,
 		int filterWidth,
-		int filterHeight
+		int filterHeight,
+		int strideX,
+		int strideY
 	):
 		inputChannels(inputChannels),
 		imageWidth(imageWidth),
@@ -21,7 +23,10 @@ public:
 		outputChannels(outputChannels),
 		filterWidth(filterWidth),
 		filterHeight(filterHeight),
-		filters(Tensor<float, 4>::ON_GPU, { outputChannels, inputChannels, filterWidth, filterHeight }) {}
+		strideX(strideX),
+		strideY(strideY),
+		filters(Tensor<float, 4>::ON_GPU, {
+			outputChannels, inputChannels, filterWidth, filterHeight }) {}
 
 	virtual Tensor<float, 4> forward(Tensor<float, 4> &input_tensor);
 	virtual Tensor<float, 4> backward(Tensor<float, 4> &error_tensor);
@@ -32,6 +37,8 @@ public:
 	int outputChannels;
 	int filterWidth;
 	int filterHeight;
+	int strideX;
+	int strideY;
 	Tensor<float, 4> filters;
 
 private:
