@@ -36,7 +36,7 @@ ReLU::backward(std::shared_ptr<Eigen::Tensor<float, 4>> error_tensor)
 		for (int c = 0; c < channels; c++) {
 			for (int x = 0; x < width; x++) {
 				for (int y = 0; y < height; y++) {
-					(*new_error)(b, c, x, y) = (*output_tensor)(b, c, x, y) < 0.
+					(*new_error)(b, c, x, y) = (*output_tensor)(b, c, x, y) == 0.
 						? 0.
 						: (*error_tensor)(b, c, x, y);
 				}

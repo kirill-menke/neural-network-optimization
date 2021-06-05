@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <iomanip>
 
 #include "Helper.h"
 
@@ -29,6 +30,22 @@ void printTensor(Eigen::Tensor<float, 4> &tensor) {
 	std::cout << std::endl << std::endl;
 }
 
+void printTensor(Eigen::Tensor<float, 2> &tensor) {
+	auto dim = tensor.dimensions();
+	std::cout << std::setprecision(5) << "  [";
+	for (int k = 0; k < dim[0]; k++) {
+		for (int l = 0; l < dim[1]; l++) {
+			std::cout << tensor(k, l);
+			if (l != dim[1] - 1)
+				std::cout << "\t";
+		}
+		if (k == dim[0] - 1)
+			std::cout << "]";
+		else
+			std::cout << std::endl << "   ";
+	}
+	std::cout << std::endl << std::endl;
+}
 
 std::pair<std::vector<int>, std::shared_ptr<Eigen::Tensor<float, 4>>>
 MNISTLoader::loadBatch(int batchSize)

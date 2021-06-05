@@ -9,6 +9,7 @@
 #include <fstream>
 
 void printTensor(Eigen::Tensor<float, 4> &tensor);
+void printTensor(Eigen::Tensor<float, 2> &tensor);
 
 class MNISTLoader {
 public:
