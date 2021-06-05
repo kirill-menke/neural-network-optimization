@@ -1,28 +1,34 @@
 #pragma once
+
 #include <unsupported/Eigen/CXX11/Tensor>
 
-static void printTensor(Eigen::Tensor<float, 4> tensor) {
-	auto dim = tensor.dimensions();
-	for (int i = 0; i < dim[0]; i++) {
-		std::cout << "[";
-		for (int j = 0; j < dim[1]; j++) {
-			std::cout << " [";
-			for (int k = 0; k < dim[2]; k++) {
-				for (int l = 0; l < dim[3]; l++) {
-					std::cout << tensor(i, j, k, l);
-					if (l != dim[3] - 1)
-						std::cout << "\t";
-				}
-				if (k == dim[2] - 1)
-					std::cout << "]";
-				else
-					std::cout << std::endl << "   ";
-			}
-			if (j != dim[1] - 1)
-				std::cout << std::endl;
-			std::cout << " ";
-		}
-		std::cout << "]" << std::endl;
-	}
-	std::cout << std::endl << std::endl;
-}
+#include <memory>
+#include <utility>
+#include <vector>
+#include <iostream>
+#include <fstream>
+
+void printTensor(Eigen::Tensor<float, 4> &tensor);
+
+class MNISTLoader {
+public:
+	static constexpr int IMAGE_WIDTH = 28;
+	static constexpr int IMAGE_HEIGHT = 28;
+
+	MNISTLoader(const char *filepath):
+		file(filepath) {}
+
+	/*
+	 * Return a pair of the actual numbers in the images
+	 * and a batch of images. Images have a channel-Dimension of
+	 * 1 and a width/height of 28x28 pixels.
+	 *
+	 * TODO: Normalize!
+	 */
+	std::pair<std::vector<int>, std::shared_ptr<Eigen::Tensor<float, 4>>> loadBatch(int batchSize);
+
+private:
+	std::ifstream file;
+	int line = 0;
+};
+

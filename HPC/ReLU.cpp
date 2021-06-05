@@ -22,7 +22,7 @@ ReLU::forward(std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor)
 		}
 	}
 
-	return input_tensor;
+	return output_tensor;
 }
 
 std::shared_ptr<Eigen::Tensor<float, 4>>
