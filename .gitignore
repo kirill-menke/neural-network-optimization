@@ -1,6 +1,8 @@
 
 /main
+/test
 HPC/GPU/test
+*.o
 
 ##############################################################
 # Generated from here on:                                    #
