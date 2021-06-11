@@ -1,13 +1,20 @@
 #pragma once
 
-#include "Layer.h"
+#include <unsupported/Eigen/CXX11/Tensor>
 
-class CrossEntropyLoss : public Layer {
-	Eigen::Tensor<float, 4> forward(Eigen::Tensor<float, 4>& input_tensor) {
-		return Eigen::Tensor<float, 4>();
-	}
+#include <memory>
 
-	Eigen::Tensor<float, 4> backward(Eigen::Tensor<float, 4>& error_tensor) {
-		return Eigen::Tensor<float, 4>();
-	}
+class CrossEntropyLoss {
+public:
+	/*
+	 * The label_tensor should be hot-1-encoded!
+	 */
+	float forward(
+		std::shared_ptr<Eigen::Tensor<float, 2>> input_tensor,
+		std::shared_ptr<Eigen::Tensor<float, 2>> label_tensor);
+	std::shared_ptr<Eigen::Tensor<float, 2>> backward(
+		std::shared_ptr<Eigen::Tensor<float, 2>> label_tensor);
+
+private:
+	std::shared_ptr<Eigen::Tensor<float, 2>> input_tensor;
 };
