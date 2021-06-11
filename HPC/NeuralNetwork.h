@@ -8,19 +8,20 @@
 #include "Initializer.h"
 
 class NeuralNetwork {
-	std::unique_ptr<Optimizer> optimizer;
-	std::unique_ptr<Initializer> initializer;
+	std::shared_ptr<Optimizer> optimizer;
+	std::shared_ptr<Initializer> initializer;
 	std::vector<float> losses;
 	std::vector<std::unique_ptr<Layer>> layers;
 
-	Eigen::Tensor<float, 4> train_data;
-	std::vector<int> train_labels;
+	std::shared_ptr<Eigen::Tensor<float, 4> const> train_data;
+	std::shared_ptr<std::vector<int> const> train_labels;
   
 
 public:
 	
-	NeuralNetwork(std::unique_ptr<Optimizer> optimizer, std::unique_ptr<Initializer> initializer, Eigen::Tensor<float, 4> train_data, std::vector<int> train_labels) :
-		optimizer(std::move(optimizer)), initializer(std::move(initializer)), train_data(train_data), train_labels(train_labels){}
+	NeuralNetwork(std::shared_ptr<Optimizer> optimizer, std::shared_ptr<Initializer> initializer, 
+		std::shared_ptr<Eigen::Tensor<float, 4> const> train_data, std::shared_ptr<std::vector<int> const> train_labels) :
+		optimizer(optimizer), initializer(initializer), train_data(train_data), train_labels(train_labels){}
 
 	float forward();
 
@@ -30,6 +31,6 @@ public:
 
 	void train(int iterations);
 
-	Eigen::Tensor<float, 4> test(Eigen::Tensor<float, 4> test_data);
+	Eigen::Tensor<float, 4> test(std::shared_ptr<Eigen::Tensor<float, 4> const> test_data);
 
 };

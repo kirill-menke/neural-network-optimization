@@ -5,11 +5,10 @@
 
 float NeuralNetwork::forward() {
 	// TODO: Take a small batch of training data
-	Eigen::Tensor<float, 4> input;
-	std::vector<float> labels; 
+	auto input = train_data;
 
 	for (const auto& layer: layers) {
-		input = layer->forward(input);
+		input = std::make_shared<Eigen::Tensor<float, 4>>(layer->forward(input)); 
 	}
 	// TODO: Pass last result to loss layer and return loss
 
@@ -18,15 +17,21 @@ float NeuralNetwork::forward() {
 
 void NeuralNetwork::backward() {
 	// TODO: Call backward on loss layer to get last error_tensor
-	Eigen::Tensor<float, 4> error_tensor;
+	auto error_tensor = std::make_shared<Eigen::Tensor<float, 4>>(3, 3, 3, 3);
 
 	for (const auto& layer : layers) {
-		error_tensor = layer->backward(error_tensor);
+		error_tensor = std::make_shared<Eigen::Tensor<float, 4>>(layer->backward(error_tensor));
 	}
 }
 
 void NeuralNetwork::appendLayer(std::unique_ptr<Layer> layer) {
+	if (layer->trainable) {
+		layer->setOptimizer(optimizer);
+		layer->setInitializer(initializer);
+	}
+
 	layers.push_back(std::move(layer));
+
 }
 
 void NeuralNetwork::train(int iterations) {
@@ -36,9 +41,9 @@ void NeuralNetwork::train(int iterations) {
 	}
 }
 
-Eigen::Tensor<float, 4> NeuralNetwork::test(Eigen::Tensor<float, 4> test_data) {
+Eigen::Tensor<float, 4> NeuralNetwork::test(std::shared_ptr<Eigen::Tensor<float, 4> const> test_data) {
 	for (const auto& layer: layers) {
-		test_data = layer->forward(test_data);
+		test_data = std::make_shared<Eigen::Tensor<float, 4>>(layer->forward(test_data));
 	}
-	return test_data;
+	return *test_data;
 }

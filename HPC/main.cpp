@@ -24,22 +24,22 @@ int main() {
 	int iterations = 200;
 	float learning_rate = 0.01f;
 
-	Eigen::Tensor<float, 4> train_data;
-	std::vector<int> train_labels;
-	Eigen::Tensor<float, 4> test_data;
-	std::vector<int> test_labels;
+	auto train_data = std::make_shared<Eigen::Tensor<float, 4>>(3, 3, 3, 3);
+	std::shared_ptr<std::vector<int>> train_labels;
+	auto test_data = std::make_shared<Eigen::Tensor<float, 4>>(3, 3, 3, 3);
+	std::shared_ptr<std::vector<int>> test_labels;
 
 	NeuralNetwork net(std::make_unique<Sgd>(learning_rate), std::make_unique<UniformRandom>(), train_data, train_labels);
 	
 	// Construct CNN
 	net.appendLayer(std::make_unique<Conv>(4, 3, 3, 1));		// kernels, channels, filter_size, stride
-	net.appendLayer(std::make_unique<ReLU>());
-	net.appendLayer(std::make_unique<Pooling>(2, 2));			// shape, stride 
-	net.appendLayer(std::make_unique<Flatten>());
-	net.appendLayer(std::make_unique<FullyConnected>(0, 0));	// input_dim, output_dim
-	net.appendLayer(std::make_unique<ReLU>());
-	net.appendLayer(std::make_unique<FullyConnected>(0, 0));
-	net.appendLayer(std::make_unique<SoftMax>());
+	//net.appendLayer(std::make_unique<ReLU>());
+	//net.appendLayer(std::make_unique<Pooling>(2, 2));			// shape, stride 
+	//net.appendLayer(std::make_unique<Flatten>());
+	//net.appendLayer(std::make_unique<FullyConnected>(0, 0));	// input_dim, output_dim
+	//net.appendLayer(std::make_unique<ReLU>());
+	//net.appendLayer(std::make_unique<FullyConnected>(0, 0));
+	//net.appendLayer(std::make_unique<SoftMax>());
 	// net.appendLayer(std::make_unique<CrossEntropyLoss>());
 
 	// Train network
@@ -49,6 +49,8 @@ int main() {
 	Eigen::Tensor<float, 4> result = net.test(test_data);
 
 	// Calculate accuracy ...
+
+	return 0;
 }
 
 
