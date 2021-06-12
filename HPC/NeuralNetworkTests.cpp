@@ -2,8 +2,8 @@
 #include <assert.h>
 #include <Eigen/Dense>
 
- #include "Conv.h"
- #include "Helper.h"
+#include "Conv.h"
+#include "Helper.h"
 
 void initializeInputs();
 
@@ -15,11 +15,11 @@ Eigen::Tensor<float, 4> weights(2, 1, 3, 3);
 Eigen::Tensor<float, 4> error_next(1, 2, 14, 14);
 Eigen::Tensor<float, 4> expected_error_prev(1, 1, 14, 14);
 
-Eigen::Tensor<float, 1> expected_gradient_bias(2);
+Eigen::Tensor<float, 4> expected_gradient_bias(1, 1, 1, 2);
 Eigen::Tensor<float, 4> expected_gradient_weights(2, 1, 3, 3);
 
 
- void testConvForward2D(Eigen::Tensor<float, 1> bias, int times = 1) {
+ void testConvForward2D(Eigen::Tensor<float, 4> bias, int times = 1) {
     Conv conv(2, 1, 3, 1);
     conv.setWeights(weights);
     conv.setBias(bias);
@@ -39,12 +39,12 @@ Eigen::Tensor<float, 4> expected_gradient_weights(2, 1, 3, 3);
     }
 
     // Performing forward pass
-    Eigen::Tensor<float, 4> output(expected_result.dimensions());
+    std::shared_ptr<Eigen::Tensor<float, 4>> output;
     for (int i = 0; i < times; i++) {
         output = conv.forward(std::make_shared<Eigen::Tensor<float, 4>>(input_image));
     }
 
-    float diff = ((Eigen::Tensor<float, 0>)(expected_result_bias - output).abs().sum())(0);
+    float diff = ((Eigen::Tensor<float, 0>)(expected_result_bias - *output).abs().sum())(0);
     
     assert(("FAILED", diff < 1e-7));
     std::cout << "PASSED" << std::endl;
@@ -54,19 +54,19 @@ Eigen::Tensor<float, 4> expected_gradient_weights(2, 1, 3, 3);
  void testConvBackward2D(int times = 1) {
      Conv conv(2, 1, 3, 1);
      conv.setWeights(weights);
-     Eigen::Tensor<float, 1> bias(2);
-     bias.setValues({ 0.5, 1 });
+     Eigen::Tensor<float, 4> bias(1, 1, 1, 2);
+     bias.setValues({ {{{ 0.5, 1 }}} });
      conv.setBias(bias);
 
      
      // Performing backward pass
-     Eigen::Tensor<float, 4> error_prev(expected_error_prev.dimensions());
+     std::shared_ptr<Eigen::Tensor<float, 4>> error_prev;
      for (int i = 0; i < times; i++) {
          conv.forward(std::make_shared<Eigen::Tensor<float, 4>>(input_image));
          error_prev = conv.backward(std::make_shared<Eigen::Tensor<float, 4>>(error_next));
      }
 
-     float diff = ((Eigen::Tensor<float, 0>)(expected_error_prev - error_prev).abs().sum())(0);
+     float diff = ((Eigen::Tensor<float, 0>)(expected_error_prev - *error_prev).abs().sum())(0);
      assert(("Computation of error with respect to the previous layer is not correct.", diff < 1e-7));
 
      diff = ((Eigen::Tensor<float, 0>)(expected_gradient_bias - conv.getGradientBias()).abs().sum())(0);
@@ -79,12 +79,12 @@ Eigen::Tensor<float, 4> expected_gradient_weights(2, 1, 3, 3);
  }
 
 
-int main_() {
+int main() {
     initializeInputs();
-    Eigen::Tensor<float, 1> zero_bias(2);
-    Eigen::Tensor<float, 1> non_zero_bias(2);
-    zero_bias.setValues({ 0., 0. });
-    non_zero_bias.setValues({ 0.5, -0.5 });
+    Eigen::Tensor<float, 4> zero_bias(1, 1, 1, 2);
+    Eigen::Tensor<float, 4> non_zero_bias(1, 1, 1, 2);
+    zero_bias.setValues({ {{{ 0., 0. }}} });
+    non_zero_bias.setValues({ {{{ 0.5, -0.5 }}} });
 
     std::cout << "------ CONVOLUTION LAYER TESTS ------" << std::endl;
     std::cout << "Convolution forward without bias: ";
@@ -222,5 +222,5 @@ void initializeInputs() {
         {-18.75, -22.5, -18.75}}}});
 
 
-    expected_gradient_bias.setValues({ 33., -33. });
+    expected_gradient_bias.setValues({ {{{ 33., -33. }}} });
 }

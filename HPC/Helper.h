@@ -19,6 +19,8 @@ public:
 	MNISTLoader(const char *filepath):
 		file(filepath) {}
 
+	MNISTLoader(const MNISTLoader&) = default;
+
 	/*
 	 * Return a pair of the actual numbers in the images
 	 * and a batch of images. Images have a channel-Dimension of
@@ -26,7 +28,7 @@ public:
 	 *
 	 * TODO: Normalize!
 	 */
-	std::pair<std::vector<int>, std::shared_ptr<Eigen::Tensor<float, 4>>> loadBatch(int batchSize);
+	std::pair<std::shared_ptr<Eigen::Tensor<float, 2>>, std::shared_ptr<Eigen::Tensor<float, 4>>> loadBatch(int batchSize);
 
 private:
 	std::ifstream file;

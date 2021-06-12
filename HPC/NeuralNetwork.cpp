@@ -1,26 +1,25 @@
 #include <iostream>
+#include <algorithm>
 
 #include "NeuralNetwork.h"
 
 
-float NeuralNetwork::forward() {
-	// TODO: Take a small batch of training data
-	auto input = train_data;
+float NeuralNetwork::forward(std::shared_ptr<Eigen::Tensor<float, 4>> images, std::shared_ptr<Eigen::Tensor<float, 2>> label_tensor) {
 
 	for (const auto& layer: layers) {
-		input = std::make_shared<Eigen::Tensor<float, 4>>(layer->forward(input)); 
+		images = layer->forward(images);
 	}
-	// TODO: Pass last result to loss layer and return loss
-
-	return 0.0;
+	
+	return loss_layer.forward(images, label_tensor);
 }
 
-void NeuralNetwork::backward() {
-	// TODO: Call backward on loss layer to get last error_tensor
-	auto error_tensor = std::make_shared<Eigen::Tensor<float, 4>>(3, 3, 3, 3);
+void NeuralNetwork::backward(std::shared_ptr<Eigen::Tensor<float, 2>> label_tensor) {
+	
+	auto error_tensor = loss_layer.backward(label_tensor);
 
-	for (const auto& layer : layers) {
-		error_tensor = std::make_shared<Eigen::Tensor<float, 4>>(layer->backward(error_tensor));
+	for (auto it = layers.rbegin(); it != layers.rend(); ++it)
+	{
+		error_tensor = (*it)->backward(error_tensor);
 	}
 }
 
@@ -36,14 +35,20 @@ void NeuralNetwork::appendLayer(std::unique_ptr<Layer> layer) {
 
 void NeuralNetwork::train(int iterations) {
 	for (int i = 0; i < iterations; i++) {
-		losses.push_back(forward());
-		backward();
+		auto batch = batch_loader.loadBatch(batch_size);
+
+		float loss = forward(batch.second, batch.first);
+
+		std::cout << "(" << i << ")" << " Loss: " << loss << std::endl;
+		
+		losses.push_back(loss);
+		backward(batch.first);
 	}
 }
 
-Eigen::Tensor<float, 4> NeuralNetwork::test(std::shared_ptr<Eigen::Tensor<float, 4> const> test_data) {
+std::shared_ptr<Eigen::Tensor<float, 4> const> NeuralNetwork::test(std::shared_ptr<Eigen::Tensor<float, 4> const> test_data) {
 	for (const auto& layer: layers) {
-		test_data = std::make_shared<Eigen::Tensor<float, 4>>(layer->forward(test_data));
+		test_data = layer->forward(test_data);
 	}
-	return *test_data;
+	return test_data;
 }

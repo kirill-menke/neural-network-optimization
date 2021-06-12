@@ -4,10 +4,12 @@
 
 #include <memory>
 
-class ReLU {
+#include "Layer.h"
+
+class ReLU : public Layer {
 public:
-	std::shared_ptr<Eigen::Tensor<float, 4>> forward(std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor);
-	std::shared_ptr<Eigen::Tensor<float, 4>> backward(std::shared_ptr<Eigen::Tensor<float, 4>> error_tensor);
+	std::shared_ptr<Eigen::Tensor<float, 4>> forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor);
+	std::shared_ptr<Eigen::Tensor<float, 4>> backward(std::shared_ptr<Eigen::Tensor<float, 4> const> error_tensor);
 
 private:
 	std::shared_ptr<Eigen::Tensor<float, 4>> output_tensor;

@@ -47,11 +47,12 @@ void printTensor(Eigen::Tensor<float, 2> &tensor) {
 	std::cout << std::endl << std::endl;
 }
 
-std::pair<std::vector<int>, std::shared_ptr<Eigen::Tensor<float, 4>>>
+std::pair<std::shared_ptr<Eigen::Tensor<float, 2>>, std::shared_ptr<Eigen::Tensor<float, 4>>>
 MNISTLoader::loadBatch(int batchSize)
 {
-	std::vector<int> numbers;
 	auto images = std::make_shared<Eigen::Tensor<float, 4>>(batchSize, 1, IMAGE_WIDTH, IMAGE_HEIGHT);
+	auto numbers = std::make_shared<Eigen::Tensor<float, 2>>(batchSize, 10);
+	numbers->setZero();
 
 	for (int b = 0; b < batchSize; b++) {
 		int digit;
@@ -69,7 +70,8 @@ MNISTLoader::loadBatch(int batchSize)
 			exit(EXIT_FAILURE);
 		}
 
-		numbers.push_back(digit);
+		(*numbers)(b, digit) = 1.0f;
+
 		for (int y = 0; y < IMAGE_HEIGHT; y++) {
 			for (int x = 0; x < IMAGE_WIDTH; x++) {
 				int pixel;

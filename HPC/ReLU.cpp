@@ -2,7 +2,7 @@
 #include "ReLU.h"
 
 std::shared_ptr<Eigen::Tensor<float, 4>>
-ReLU::forward(std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor)
+ReLU::forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor)
 {
 	auto dims = input_tensor->dimensions();
 	int batches = dims[0], channels = dims[1], width = dims[2], height = dims[3];
@@ -26,7 +26,7 @@ ReLU::forward(std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor)
 }
 
 std::shared_ptr<Eigen::Tensor<float, 4>>
-ReLU::backward(std::shared_ptr<Eigen::Tensor<float, 4>> error_tensor)
+ReLU::backward(std::shared_ptr<Eigen::Tensor<float, 4> const> error_tensor)
 {
 	auto dims = error_tensor->dimensions();
 	int batches = dims[0], channels = dims[1], width = dims[2], height = dims[3];

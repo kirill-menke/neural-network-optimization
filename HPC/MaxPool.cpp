@@ -4,11 +4,11 @@
 #include "MaxPool.h"
 
 std::shared_ptr<Eigen::Tensor<float, 4>>
-MaxPool::forward(std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor)
+MaxPool::forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor)
 {
 	auto dims = input_tensor->dimensions();
-	int batches = dims[0], channels = dims[1], width = dims[2], height = dims[3];
-	assert(width == inputWidth && height == inputHeight);
+	int batches = dims[0], channels = dims[1];
+	inputHeight = dims[2], inputWidth = dims[3];
 	int outputWidth = this->outputWidth(), outputHeight = this->outputHeight();
 
 	maximas = std::make_shared<Eigen::Tensor<int, 5>>(
@@ -46,7 +46,7 @@ MaxPool::forward(std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor)
 }
 
 std::shared_ptr<Eigen::Tensor<float, 4>>
-MaxPool::backward(std::shared_ptr<Eigen::Tensor<float, 4>> error_tensor)
+MaxPool::backward(std::shared_ptr<Eigen::Tensor<float, 4> const> error_tensor)
 {
 	auto dims = error_tensor->dimensions();
 	int batches = dims[0], channels = dims[1], outputWidth = dims[2], outputHeight = dims[3];

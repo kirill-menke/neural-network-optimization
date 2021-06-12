@@ -17,8 +17,8 @@ class Conv : public Layer {
 
 	Eigen::Tensor<float, 4> weights;
 	Eigen::Tensor<float, 4> gradient_weights;
-	Eigen::Tensor<float, 1> bias;
-	Eigen::Tensor<float, 1> gradient_bias;
+	Eigen::Tensor<float, 4> bias;
+	Eigen::Tensor<float, 4> gradient_bias;
 
 	int stride;
 	int num_kernels;
@@ -37,8 +37,8 @@ public:
 
 		weights = Eigen::Tensor<float, 4>(num_kernels, channels, filter_size, filter_size);
 		gradient_weights = Eigen::Tensor<float, 4>(num_kernels, channels, filter_size, filter_size);
-		bias = Eigen::Tensor<float, 1>(num_kernels);
-		gradient_bias = Eigen::Tensor<float, 1>(num_kernels);
+		bias = Eigen::Tensor<float, 4>(1, 1, 1, num_kernels);
+		gradient_bias = Eigen::Tensor<float, 4>(1, 1, 1, num_kernels);
 
 		// Initialize weights	 
 		std::mt19937_64 rng(0);
@@ -56,7 +56,7 @@ public:
 
 		// Initialize bias
 		for (int i = 0; i < num_kernels; i++) {
-			bias(i) = unif(rng);
+			bias(0, 0, 0, i) = unif(rng);
 		}
 
 
@@ -68,7 +68,7 @@ public:
 		paddings[3] = std::make_pair(spatial_pad, spatial_pad);
 	}
 
-	Eigen::Tensor<float, 4> forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor) {
+	std::shared_ptr<Eigen::Tensor<float, 4>> forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor) {
 		this->input_tensor = input_tensor;
 		auto input_dims = input_tensor->dimensions();
 
@@ -76,14 +76,15 @@ public:
 
 		int out_x = static_cast<int>((input_dims[2] - filter_size + 2 * spatial_pad) / stride + 1);
 		int out_y = static_cast<int>((input_dims[3] - filter_size + 2 * spatial_pad) / stride + 1);
-		Eigen::Tensor<float, 4> feature_maps(input_dims[0], num_kernels, out_x, out_y);
-		correlate(padded_input, feature_maps, stride, true);
+		auto feature_maps = std::make_shared<Eigen::Tensor<float, 4>>(input_dims[0], num_kernels, out_x, out_y);
+		correlate(padded_input, *feature_maps, stride, true);
 
 		return feature_maps;
+
 	}
 
 
-	Eigen::Tensor<float, 4> backward(std::shared_ptr<Eigen::Tensor<float, 4> const> error_tensor) {
+	std::shared_ptr<Eigen::Tensor<float, 4>> backward(std::shared_ptr<Eigen::Tensor<float, 4> const> error_tensor) {
 
 		auto input_dims = input_tensor->dimensions();
 		auto error_dims = error_tensor->dimensions();
@@ -104,10 +105,9 @@ public:
 		}
 
 
-		Eigen::Tensor<float, 4> padded_error_tensor = upsampled_error_tensor.pad(paddings);
-		Eigen::Tensor<float, 4> feature_maps(input_dims);
-		convolve(padded_error_tensor, feature_maps, 1, false);
-
+		Eigen::Tensor<float, 4> const & padded_error_tensor = upsampled_error_tensor.pad(paddings);
+		auto feature_maps = std::make_shared<Eigen::Tensor<float, 4>>(input_dims);
+		convolve(padded_error_tensor, *feature_maps, 1, false);
 		
 		/* Gradient w.r.t. the bias and weights*/
 		gradient_bias.setZero();
@@ -117,28 +117,31 @@ public:
 			for (int j = 0; j < num_kernels; j++) {
 				for (int x = 0; x < input_dims[2]; x++) {
 					for (int y = 0; y < input_dims[3]; y++) {
-						gradient_bias(j) += upsampled_error_tensor(i, j, x, y);
+						gradient_bias(0, 0, 0, j) += upsampled_error_tensor(i, j, x, y);
 					}
 				}
 			}
 		}
 
 
-		Eigen::Tensor<float, 4> padded_input_tensor = input_tensor->pad(paddings);
+		Eigen::Tensor<float, 4> const & padded_input_tensor = input_tensor->pad(paddings);
 		Eigen::Tensor<float, 4> kernel_gradient(1, channels, filter_size, filter_size);
+		Eigen::array<Eigen::DenseIndex, 4> slice_dim{1, 1, input_dims[2], input_dims[3]};
 
 		for (int i = 0; i < error_dims[0]; i++) {
 			for (int j = 0; j < error_dims[1]; j++) {
-				Eigen::Tensor<float, 2> slice = upsampled_error_tensor.chip(0, 0).chip(j, 0);
-				Eigen::TensorMap<Eigen::Tensor<float, 4>> u_slice(slice.data(), 1, 1, input_dims[2], input_dims[3]);
-				correlate3D(padded_input_tensor, kernel_gradient, u_slice, 1, false);
+				Eigen::Tensor<float, 4> const& slice = upsampled_error_tensor.chip(0, 0).chip(j, 0).reshape(slice_dim);
+				correlate3D(padded_input_tensor, kernel_gradient, slice, 1, false);
 				gradient_weights.chip(j, 0) += kernel_gradient.chip(0, 0);
 			}
 		}
 
 
 		// Update weights and bias
-		weights = optimizer->calculateUpdate(weights, gradient_weights);
+		if (optimizer) {
+			weights = optimizer->calculateUpdate(weights, gradient_weights);
+			bias = optimizer->calculateUpdate(bias, gradient_bias);
+		}
 
 		return feature_maps;
 	}
@@ -147,7 +150,7 @@ public:
 		this->weights = weights;
 	}
 
-	void setBias(Eigen::Tensor<float, 1> bias) {
+	void setBias(Eigen::Tensor<float, 4> bias) {
 		this->bias = bias;
 	}
 
@@ -159,7 +162,7 @@ public:
 		return weights;
 	}
 
-	Eigen::Tensor<float, 1> getBias() {
+	Eigen::Tensor<float, 4> getBias() {
 		return bias;
 	}
 
@@ -167,7 +170,7 @@ public:
 		return gradient_weights;
 	}
 
-	Eigen::Tensor<float, 1> getGradientBias() {
+	Eigen::Tensor<float, 4> getGradientBias() {
 		return gradient_bias;
 	}
 
@@ -184,8 +187,8 @@ private:
 		Eigen::array<int, 4> shuffle({ 1, 0, 2, 3 });
 		Eigen::array<bool, 4> reverse({ true, false, true, true });
 
-		Eigen::Tensor<float, 4> s_weights = weights.shuffle(shuffle);
-		Eigen::Tensor<float, 4> r_weights = s_weights.reverse(reverse);
+		Eigen::Tensor<float, 4> const & s_weights = weights.shuffle(shuffle);
+		Eigen::Tensor<float, 4> const & r_weights = s_weights.reverse(reverse);
 
 		return r_weights;
 	}
