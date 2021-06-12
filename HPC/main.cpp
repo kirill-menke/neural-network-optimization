@@ -17,7 +17,7 @@
 #include "Conv.h"
 #include "Helper.h"
 
-int main_() {
+int main() {
 
 	int iterations = 200;
 	float learning_rate = 0.01f;
