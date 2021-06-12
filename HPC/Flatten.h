@@ -7,6 +7,7 @@ class Flatten : public Layer {
 
 	Eigen::DSizes<Eigen::DenseIndex, 4> input_dims;
 
+public:
 	std::shared_ptr<Eigen::Tensor<float, 4>> forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor) {
 		input_dims = input_tensor->dimensions();
 		Eigen::array<Eigen::DenseIndex, 4> three_dims{ {input_dims[0], input_dims[1] * input_dims[2] * input_dims[3], 1, 1} };

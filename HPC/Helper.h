@@ -19,8 +19,6 @@ public:
 	MNISTLoader(const char *filepath):
 		file(filepath) {}
 
-	MNISTLoader(const MNISTLoader&) = default;
-
 	/*
 	 * Return a pair of the actual numbers in the images
 	 * and a batch of images. Images have a channel-Dimension of

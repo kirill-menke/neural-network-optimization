@@ -4,13 +4,11 @@
 
 #include <memory>
 
-#include "Layer.h"
-
-class SoftMax : public Layer{
+class SoftMax {
 public:
-	std::shared_ptr<Eigen::Tensor<float, 4>> forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor);
-	std::shared_ptr<Eigen::Tensor<float, 4>> backward(std::shared_ptr<Eigen::Tensor<float, 4> const> error_tensor);
+	std::shared_ptr<Eigen::Tensor<float, 2>> forward(std::shared_ptr<Eigen::Tensor<float, 2> const> input_tensor);
+	std::shared_ptr<Eigen::Tensor<float, 2>> backward(std::shared_ptr<Eigen::Tensor<float, 2> const> error_tensor);
 
 private:
-	std::shared_ptr<Eigen::Tensor<float, 4>> output_tensor;
+	std::shared_ptr<Eigen::Tensor<float, 2>> output_tensor;
 };

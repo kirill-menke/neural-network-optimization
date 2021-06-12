@@ -3,6 +3,7 @@
 
 #include "Optimizer.h"
 #include "Initializer.h"
+#include <memory>
 
 class Layer {
 

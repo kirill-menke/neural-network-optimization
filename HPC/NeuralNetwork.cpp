@@ -3,7 +3,7 @@
 
 #include "NeuralNetwork.h"
 
-
+#if 0
 float NeuralNetwork::forward(std::shared_ptr<Eigen::Tensor<float, 4>> images, std::shared_ptr<Eigen::Tensor<float, 2>> label_tensor) {
 
 	for (const auto& layer: layers) {
@@ -52,3 +52,4 @@ std::shared_ptr<Eigen::Tensor<float, 4> const> NeuralNetwork::test(std::shared_p
 	}
 	return test_data;
 }
+#endif

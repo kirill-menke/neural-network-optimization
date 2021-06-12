@@ -14,8 +14,8 @@ public:
 		int poolWidth,
 		int poolHeight
 	):
-		inputHeight(0),
 		inputWidth(0),
+		inputHeight(0),
 		strideX(strideX),
 		strideY(strideY),
 		poolWidth(poolWidth),

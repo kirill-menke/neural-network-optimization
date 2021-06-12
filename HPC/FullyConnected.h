@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include "Layer.h"
 
+#if 0
 class FullyConnected : public Layer {
 	int input_size;
 	int output_size;
@@ -25,3 +26,4 @@ public:
 	}
 
 };
+#endif

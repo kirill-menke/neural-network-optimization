@@ -1,11 +1,16 @@
 
 CXX=clang++
-CXXFLAGS=-std=c++17 -Wall -Wno-unused-parameter -Wno-unused-private-field -I./eigen-3.3.9/
+CXXFLAGS=-g -O2 -std=c++17 -Wall -Wno-unused-parameter -Wno-unused-private-field -Wno-delete-non-abstract-non-virtual-dtor -I./eigen-3.3.9/
 
-HEADERS=$(shell find ./HPC -name "*.h")
-CPPFILES=$(shell find ./HPC -name "*.cpp")
+HEADERS:=$(shell echo ./HPC/*.h)
+CPPFILES:=$(filter-out ./HPC/NeuralNetwork.h, $(CPPFILES))
+CPPFILES:=$(shell echo ./HPC/*.cpp)
+CPPFILES:=$(filter-out ./HPC/NeuralNetwork.cpp, $(CPPFILES))
+CPPFILES:=$(filter-out ./HPC/NeuralNetworkTests.cpp, $(CPPFILES))
 
 .PHONY: all clean
+
+all: main
 
 ./HPC/ReLU.o: ./HPC/ReLU.cpp ./HPC/ReLU.h
 ./HPC/MaxPool.o: ./HPC/MaxPool.cpp ./HPC/MaxPool.h
@@ -15,15 +20,16 @@ CPPFILES=$(shell find ./HPC -name "*.cpp")
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-all: main
-
 test: ./HPC/MaxPool.h ./HPC/ReLU.h ./HPC/SoftMax.h ./HPC/Loss.h ./HPC/Helper.h \
 		./HPC/MaxPool.cpp ./HPC/ReLU.cpp ./HPC/SoftMax.cpp ./HPC/Loss.cpp ./HPC/Helper.cpp ./test.cpp
 	$(CXX) $(CXXFLAGS) -o $@ ./HPC/MaxPool.cpp ./HPC/ReLU.cpp ./HPC/SoftMax.cpp ./HPC/Loss.cpp ./HPC/Helper.cpp ./test.cpp
 
+main: $(HEADERS) $(CPPFILES)
+	$(CXX) $(CXXFLAGS) -o $@ $(CPPFILES)
 
 clean:
 	rm -rf ./main
+	rm -rf ./test
 	rm -rf ./HPC/*.o
 
 

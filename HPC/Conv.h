@@ -32,7 +32,7 @@ class Conv : public Layer {
 public:
 
 	Conv(int num_kernels, int channels, int filter_size, int stride) :
-		num_kernels(num_kernels), channels(channels), filter_size(filter_size), stride(stride) {
+		stride(stride), num_kernels(num_kernels), channels(channels), filter_size(filter_size) {
 		trainable = true;
 
 		weights = Eigen::Tensor<float, 4>(num_kernels, channels, filter_size, filter_size);
