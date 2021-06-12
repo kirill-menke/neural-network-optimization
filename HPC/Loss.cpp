@@ -4,7 +4,7 @@
 
 float
 CrossEntropyLoss::forward(
-    std::shared_ptr<Eigen::Tensor<float, 2>> input_tensor,
+    std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor,
     std::shared_ptr<Eigen::Tensor<float, 2>> label_tensor)
 {
     this->input_tensor = input_tensor;
@@ -25,24 +25,24 @@ CrossEntropyLoss::forward(
             }
         }
 
-        max = (*input_tensor)(b, maxIdx);
+        max = (*input_tensor)(b, maxIdx, 0, 0);
         loss += -log(max + EPSILON);
     }
 
     return loss;
 }
 
-std::shared_ptr<Eigen::Tensor<float, 2>>
+std::shared_ptr<Eigen::Tensor<float, 4>>
 CrossEntropyLoss::backward(std::shared_ptr<Eigen::Tensor<float, 2>> label_tensor)
 {
     auto dims = label_tensor->dimensions();
 	int batcheSize = dims[0], features = dims[1];
 
-    auto output_tensor = std::make_shared<Eigen::Tensor<float, 2>>(batcheSize, features);
+    auto output_tensor = std::make_shared<Eigen::Tensor<float, 4>>(batcheSize, features, 1, 1);
 
     for (int b = 0; b < batcheSize; b++) {
         for (int f = 0; f < features; f++) {
-            (*output_tensor)(b, f) = -((*label_tensor)(b, f) / (*input_tensor)(b, f));
+            (*output_tensor)(b, f, 0, 0) = -((*label_tensor)(b, f) / (*input_tensor)(b, f, 0, 0));
         }
     }
 
