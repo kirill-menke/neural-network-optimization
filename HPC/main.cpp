@@ -44,9 +44,32 @@ void assertSize(std::shared_ptr<Eigen::Tensor<float, 2>> tensor, int d1, int d2)
 	assert(tensor->dimension(1) == d2);
 }
 
+/*
+ * Return percentage of correct predictions:
+ */
+float correctDigits(std::shared_ptr<Eigen::Tensor<float, 2>> truth, std::shared_ptr<Eigen::Tensor<float, 2>> prediction) {
+	int batch_size = truth->dimension(0);
+	int classes = truth->dimension(1);
+	int correct = 0;
+	for (int b = 0; b < batch_size; b++) {
+		int maxidx = 0;
+		for (int c = 0; c < classes; c++) {
+			if ((*prediction)(b, c) > (*prediction)(b, maxidx)) {
+				maxidx = c;
+			}
+		}
+
+		if ((*truth)(b, maxidx) > 0.0) {
+			correct += 1;
+		}
+	}
+
+	return (float(correct) / float(batch_size)) * 100.0;
+}
+
 int main() {
-	int iterations = 200;
-	int batchSize = 10;
+	int iterations = 20000;
+	int batchSize = 15;
 	float learning_rate = 1e-4f;
 
 	MNISTLoader loader("./data/mnist-train.txt");
@@ -82,7 +105,7 @@ int main() {
 
 	CrossEntropyLoss lossLayer;
 
-	auto train = [&](){
+	auto train = [&](int i) -> float {
 		auto batch = loader.loadBatch(batchSize);
 		auto labels = batch.first;
 		auto images = batch.second;
@@ -106,11 +129,18 @@ int main() {
 		assertSize(res, batchSize, 10);
 
 		float loss = lossLayer.forward(res, labels);
-		printf("Loss: %f\n", loss);
+		if (i % 25 == 0) {
+			float correct = correctDigits(labels, res);
+			printf("Loss: %f, correct: %f\n", loss, correct);
+		}
 
 		// Backward:
 
-		auto err = flattenRank.backward(softMax.backward(lossLayer.backward(labels)));
+		auto lossErr = lossLayer.backward(labels);
+	
+		auto softMaxErr = softMax.backward(lossErr);
+		auto err = flattenRank.backward(softMaxErr);
+
 		assertSize(err, batchSize, 10, 1, 1);
 		auto err3 = conv3.backward(err);
 		assertSize(err3, batchSize, 588, 1, 1);
@@ -124,10 +154,12 @@ int main() {
 		assertSize(err1, batchSize, 6, 28, 28);
 		err1 = conv1.backward(reLu1.backward(err1));
 		assertSize(err1, batchSize, 1, 28, 28);
+
+		return loss;
 	};
 
 	for (int i = 0; i < iterations; i++)
-		train();
+		train(i);
 
 }
 

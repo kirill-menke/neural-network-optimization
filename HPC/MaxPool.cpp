@@ -21,7 +21,8 @@ MaxPool::forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor)
 		for (int c = 0; c < channels; c++) {
 			for (int x_in = 0, x_out = 0; x_out < outputWidth; x_out++, x_in += strideX) {
 				for (int y_in = 0, y_out = 0; y_out < outputHeight; y_out++, y_in += strideY) {
-					int i_max = 0, j_max = 0, max = -std::numeric_limits<float>::infinity();
+					int i_max = 0, j_max = 0;
+					float max = -std::numeric_limits<float>::infinity();
 
 					for (int i = 0; i < poolWidth; i++) {
 						for (int j = 0; j < poolHeight; j++) {

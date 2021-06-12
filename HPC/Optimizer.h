@@ -6,7 +6,8 @@
 class Optimizer {
 
 public:
-	virtual Eigen::Tensor<float, 4> calculateUpdate(Eigen::Tensor<float, 4> weight_tensor, Eigen::Tensor<float, 4> gradient_tensor) = 0;
+	virtual Eigen::Tensor<float, 4> calculateUpdate(Eigen::Tensor<float, 4> &weight_tensor, Eigen::Tensor<float, 4> &gradient_tensor) = 0;
+	virtual Eigen::Tensor<float, 1> calculateUpdate(Eigen::Tensor<float, 1> &weight_tensor, Eigen::Tensor<float, 1> &gradient_tensor) = 0;
 };
 
 class Sgd : public Optimizer {
@@ -16,12 +17,16 @@ public:
 
 	Sgd(float learning_rate) : learning_rate(learning_rate) {}
 
-	Eigen::Tensor<float, 4> calculateUpdate(Eigen::Tensor<float, 4> weight_tensor, Eigen::Tensor<float, 4> gradient_tensor) {
+	Eigen::Tensor<float, 4> calculateUpdate(Eigen::Tensor<float, 4> &weight_tensor, Eigen::Tensor<float, 4> &gradient_tensor) {
+		return weight_tensor - learning_rate * gradient_tensor;
+	}
+
+	Eigen::Tensor<float, 1> calculateUpdate(Eigen::Tensor<float, 1> &weight_tensor, Eigen::Tensor<float, 1> &gradient_tensor) {
 		return weight_tensor - learning_rate * gradient_tensor;
 	}
 };
 
-
+#if 0
 class SgdWithMomentum : public Optimizer {
 	float learning_rate;
 	float momentum_rate;
@@ -69,3 +74,4 @@ class Adam : public Optimizer {
 		return weight_tensor - learning_rate * v_corr / (r_corr.sqrt() + eps);
 	}
 };
+#endif
