@@ -40,25 +40,12 @@ public:
 		bias = Eigen::Tensor<float, 4>(1, 1, 1, num_kernels);
 		gradient_bias = Eigen::Tensor<float, 4>(1, 1, 1, num_kernels);
 
-		// Initialize weights	 
-		std::mt19937_64 rng(0);
-		std::uniform_real_distribution<float> unif(0, 1);
+		weights.setConstant(0.1);
+		bias.setConstant(0.1);
 
-		for (int i = 0; i < num_kernels; i++) {
-			for (int j = 0; j < channels; j++) {
-				for (int x = 0; x < filter_size; x++) {
-					for (int y = 0; y < filter_size; y++) {
-						weights(i, j, x, y) = unif(rng);
-					}
-				}
-			}
-		}
-
-		// Initialize bias
-		for (int i = 0; i < num_kernels; i++) {
-			bias(0, 0, 0, i) = unif(rng);
-		}
-
+		// Initialize weights if initializer is set
+		if (initializer)
+			initializer->initialize(weights, bias);
 
 		// Create padding so that tensor size remains the same after correlation/ convolution
 		spatial_pad = static_cast<int>(filter_size / 2);
@@ -125,14 +112,14 @@ public:
 
 
 		Eigen::Tensor<float, 4> const & padded_input_tensor = input_tensor->pad(paddings);
-		Eigen::Tensor<float, 4> kernel_gradient(1, channels, filter_size, filter_size);
-		Eigen::array<Eigen::DenseIndex, 4> slice_dim{1, 1, input_dims[2], input_dims[3]};
+		Eigen::Tensor<float, 3> kernel_gradient(channels, filter_size, filter_size);
 
 		for (int i = 0; i < error_dims[0]; i++) {
 			for (int j = 0; j < error_dims[1]; j++) {
-				Eigen::Tensor<float, 4> const& slice = upsampled_error_tensor.chip(0, 0).chip(j, 0).reshape(slice_dim);
-				correlate3D(padded_input_tensor, kernel_gradient, slice, 1, false);
-				gradient_weights.chip(j, 0) += kernel_gradient.chip(0, 0);
+				Eigen::Tensor<float, 2> const& slice = upsampled_error_tensor.chip(0, 0).chip(j, 0);
+				Eigen::Tensor<float, 3> const& input_sample = padded_input_tensor.chip(i, 0);
+				correlate3D(input_sample, slice, kernel_gradient);
+				gradient_weights.chip(j, 0) += kernel_gradient;
 			}
 		}
 
@@ -158,6 +145,10 @@ public:
 		this->optimizer = optimizer;
 	}
 
+	void setInitializer(std::shared_ptr<Initializer> initializer) {
+		this->initializer = initializer;
+	}
+
 	Eigen::Tensor<float, 4> getWeights() {
 		return weights;
 	}
@@ -180,7 +171,7 @@ private:
 	void convolve(const Eigen::Tensor<float, 4>& input, Eigen::Tensor<float, 4>& feature_maps, int stride, bool add_bias) {
 		// Swap kernel axes (batch and color channel) and reverse dims
 		Eigen::Tensor<float, 4> r_weights = reverseKernelDims();
-		correlate3D(input, feature_maps, r_weights, stride, add_bias);
+		correlate2D(input, feature_maps, r_weights, stride, add_bias);
 	}
 
 	Eigen::Tensor<float, 4> reverseKernelDims() {
@@ -194,10 +185,10 @@ private:
 	}
 
 	void correlate(const Eigen::Tensor<float, 4>& input, Eigen::Tensor<float, 4>& feature_maps, int stride, bool add_bias) {
-		correlate3D(input, feature_maps, weights, stride, add_bias);
+		correlate2D(input, feature_maps, weights, stride, add_bias);
 	}
 
-	void correlate3D(Eigen::Tensor<float, 4> const & input, Eigen::Tensor<float, 4>& feature_maps, Eigen::Tensor<float, 4> const & kernels, int stride, bool add_bias) {
+	void correlate2D(Eigen::Tensor<float, 4> const & input, Eigen::Tensor<float, 4>& feature_maps, Eigen::Tensor<float, 4> const & kernels, int stride, bool add_bias) {
 		auto output_dims = feature_maps.dimensions();
 		auto kernel_dims = kernels.dimensions();
 		feature_maps.setZero();
@@ -219,6 +210,27 @@ private:
 				}
 			}
 		}
+	}
+
+
+	void correlate3D(Eigen::Tensor<float, 3> const& input, Eigen::Tensor<float, 2> const& kernel, Eigen::Tensor<float, 3>& output) {
+		auto output_dims = output.dimensions();
+		auto kernel_dims = kernel.dimensions();
+		auto input_dims = input.dimensions();
+		output.setZero();
+
+		for (int i = 0; i < output_dims[0]; i++) {
+			for (int j = 0; j < output_dims[1]; j++) {
+				for (int k = 0; k < output_dims[2]; k++) {
+					for (int x = 0; x < kernel_dims[0]; x++) {
+						for (int y = 0; y < kernel_dims[1]; y++) {
+							output(i, j, k) += input(i, x + j, y + k) * kernel(x, y);
+						}
+					}
+				}
+			}
+		}
+		
 	}
 
 };

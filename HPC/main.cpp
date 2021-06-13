@@ -72,7 +72,7 @@ int main() {
 	int batchSize = 15;
 	float learning_rate = 1e-4f;
 
-	MNISTLoader loader("./data/mnist-train.txt");
+	MNISTLoader loader("../data/mnist-train.txt");
 
 	/* B x 1 x 28 x 28 */
 	Conv conv1(6, 1, 3, 1);
@@ -102,6 +102,11 @@ int main() {
 	conv2.setOptimizer(opt2);
 	auto opt3 = std::make_shared<Sgd>(learning_rate);
 	conv3.setOptimizer(opt3);
+
+	auto initializer = std::make_shared<Constant>(0.05);
+	conv1.setInitializer(initializer);
+	conv2.setInitializer(initializer);
+	conv3.setInitializer(initializer);
 
 	CrossEntropyLoss lossLayer;
 
@@ -161,6 +166,7 @@ int main() {
 	for (int i = 0; i < iterations; i++)
 		train(i);
 
+	return 0; 
 }
 
 
