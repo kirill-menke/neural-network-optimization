@@ -68,28 +68,28 @@ float correctDigits(std::shared_ptr<Eigen::Tensor<float, 2>> truth, std::shared_
 }
 
 int main() {
-	int iterations = 20000;
-	int batchSize = 15;
-	float learning_rate = 1e-4f;
+	int iterations = 5000;
+	int batchSize = 1;
+	float learning_rate = 5e-5f;
 
 	MNISTLoader loader("../data/mnist-train.txt");
 
 	/* B x 1 x 28 x 28 */
-	Conv conv1(6, 1, 3, 1);
-	/* B x 6 x 28 x 28 */
+	Conv conv1(3, 1, 3, 1);
+	/* B x 3 x 28 x 28 */
 	ReLU reLu1;
-	/* B x 6 x 28 x 28 */
+	/* B x 3 x 28 x 28 */
 	MaxPool maxPool1(2, 2, 2, 2);
-	/* B x 6 x 14 x 14 */
-	Conv conv2(12, 6, 3, 1);
-	/* B x 12 x 14 x 14 */
+	/* B x 3 x 14 x 14 */
+	Conv conv2(3, 3, 3, 1);
+	/* B x 3 x 14 x 14 */
 	ReLU reLu2;
-	/* B x 12 x 14 x 14 */
+	/* B x 3 x 14 x 14 */
 	MaxPool maxPool2(2, 2, 2, 2);
-	/* B x 12 x 7 x 7 */
+	/* B x 3 x 7 x 7 */
 	Flatten flatten;
-	/* B x 588 x 1 x 1 */
-	Conv conv3(10, 588, 1, 1);
+	/* B x 147 x 1 x 1 */
+	Conv conv3(10, 147, 1, 1);
 	/* B x 10 x 1 x 1*/
 	FlattenRank flattenRank;
 	/* B x 10 */
@@ -119,14 +119,14 @@ int main() {
 		// Forward:
 
 		auto tensor1 = reLu1.forward(conv1.forward(images));
-		assertSize(tensor1, batchSize, 6, 28, 28);
+		assertSize(tensor1, batchSize, 3, 28, 28);
 		tensor1 = maxPool1.forward(tensor1);
-		assertSize(tensor1, batchSize, 6, 14, 14);
+		assertSize(tensor1, batchSize, 3, 14, 14);
 
 		auto tensor2 = reLu2.forward(conv2.forward(tensor1));
-		assertSize(tensor2, batchSize, 12, 14, 14);
+		assertSize(tensor2, batchSize, 3, 14, 14);
 		tensor2 = maxPool2.forward(tensor2);
-		assertSize(tensor2, batchSize, 12, 7, 7);
+		assertSize(tensor2, batchSize, 3, 7, 7);
 
 		auto tensor3 = conv3.forward(flatten.forward(tensor2));
 		assertSize(tensor3, batchSize, 10, 1, 1);
@@ -142,22 +142,28 @@ int main() {
 		// Backward:
 
 		auto lossErr = lossLayer.backward(labels);
-	
+		printTensor(*lossErr);
+
 		auto softMaxErr = softMax.backward(lossErr);
+		printTensor(*softMaxErr);
 		auto err = flattenRank.backward(softMaxErr);
+		
 
 		assertSize(err, batchSize, 10, 1, 1);
 		auto err3 = conv3.backward(err);
-		assertSize(err3, batchSize, 588, 1, 1);
+		printTensor(*err3);
+
+		assertSize(err3, batchSize, 147, 1, 1);
 
 		auto err2 = maxPool2.backward(flatten.backward(err3));
-		assertSize(err2, batchSize, 12, 14, 14);
+		assertSize(err2, batchSize, 3, 14, 14);
 		err2 = conv2.backward(reLu2.backward(err2));
-		assertSize(err2, batchSize, 6, 14, 14);
+		assertSize(err2, batchSize, 3, 14, 14);
 
 		auto err1 = maxPool1.backward(err2);
-		assertSize(err1, batchSize, 6, 28, 28);
+		assertSize(err1, batchSize, 3, 28, 28);
 		err1 = conv1.backward(reLu1.backward(err1));
+		printTensor(*err1);
 		assertSize(err1, batchSize, 1, 28, 28);
 
 		return loss;
