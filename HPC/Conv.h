@@ -13,7 +13,6 @@
 
 class Conv : public Layer {
 	std::shared_ptr<Optimizer> optimizer;
-	std::shared_ptr<Initializer> initializer;
 
 	Eigen::Tensor<float, 4> weights;
 	Eigen::Tensor<float, 4> gradient_weights;
@@ -40,12 +39,8 @@ public:
 		bias = Eigen::Tensor<float, 4>(1, 1, 1, num_kernels);
 		gradient_bias = Eigen::Tensor<float, 4>(1, 1, 1, num_kernels);
 
-		weights.setConstant(0.1);
-		bias.setConstant(0.1);
-
-		// Initialize weights if initializer is set
-		if (initializer)
-			initializer->initialize(weights, bias);
+		weights.setConstant(0.05);
+		bias.setConstant(0.05);
 
 		// Create padding so that tensor size remains the same after correlation/ convolution
 		spatial_pad = static_cast<int>(filter_size / 2);
@@ -146,7 +141,7 @@ public:
 	}
 
 	void setInitializer(std::shared_ptr<Initializer> initializer) {
-		this->initializer = initializer;
+		initializer->initialize(weights, bias);
 	}
 
 	Eigen::Tensor<float, 4> getWeights() {
