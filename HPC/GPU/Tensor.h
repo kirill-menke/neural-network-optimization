@@ -16,11 +16,8 @@ public:
 	Tensor(int mode, std::initializer_list<int> dims) {
 		assert(dims.size() == Rank);
 		auto iter = dims.begin();
-		this->total_size = 1;
-		for (int i = 0; i < Rank; i++, iter++) {
+		for (int i = 0; i < Rank; i++, iter++)
 			this->dims[i] = *iter;
-			this->total_size *= *iter;
-		}
 
 		if ((mode & ON_CPU) != 0) allocCPU();
 		if ((mode & ON_GPU) != 0) allocGPU();
@@ -28,26 +25,26 @@ public:
 
 	void allocCPU() {
 		if (this->data == nullptr)
-			this->data = (Scalar *)calloc(this->total_size, sizeof(Scalar));
+			this->data = (Scalar *)calloc(this->num_elements(), sizeof(Scalar));
 	}
 
 	void allocGPU() {
 		if (this->dev_data == nullptr)
 			cudaErrchk(cudaMalloc(
 				(void **)&this->dev_data,
-				this->total_size * sizeof(Scalar)));
+				this->num_elements() * sizeof(Scalar)));
 	}
 
 	void moveToDevice() {
 		allocGPU();
 		cudaErrchk(cudaMemcpy(this->dev_data, this->data,
-			this->total_size * sizeof(Scalar), cudaMemcpyHostToDevice));
+			this->num_elements() * sizeof(Scalar), cudaMemcpyHostToDevice));
 	}
 
 	void moveToHost() {
 		allocCPU();
 		cudaErrchk(cudaMemcpy(this->data, this->dev_data,
-			this->total_size * sizeof(Scalar), cudaMemcpyDeviceToHost));
+			this->num_elements() * sizeof(Scalar), cudaMemcpyDeviceToHost));
 	}
 
 	void destroy() {
@@ -85,13 +82,29 @@ public:
 			fprintf(f, i == Rank - 1 ? "%d" : "%d, ", this->dims[i]);
 		fprintf(f, "]: %s\n", msg);
 
-		for (int i = 0; i < this->total_size; i++)
-			fprintf(f, i == this->total_size - 1 ? "%f\n" : "%f, ", this->data[i]);
+		for (int i = 0; i < this->num_elements(); i++)
+			fprintf(f, i == this->num_elements() - 1 ? "%f\n" : "%f, ", this->data[i]);
 	}
 
 	__host__ __device__
 	int dim(int i) const {
 		return this->dims[i];
+	}
+
+	__host__ __device__
+	Scalar& operator() (int i, int j, int k, int l, int m) {
+		static_assert(Rank == 5);
+		int idx =
+			i * this->dims[1] * this->dims[2] * this->dims[3] * this->dims[4] +
+			j * this->dims[2] * this->dims[3] * this->dims[4] +
+			k * this->dims[3] * this->dims[4] +
+			l * this->dims[4] +
+			m;
+		#ifdef  __CUDA_ARCH__
+		return this->dev_data[idx];
+		#else
+		return this->data[idx];
+		#endif
 	}
 
 	__host__ __device__
@@ -102,6 +115,19 @@ public:
 			j * this->dims[2] * this->dims[3] +
 			k * this->dims[3] +
 			l;
+		#ifdef  __CUDA_ARCH__
+		return this->dev_data[idx];
+		#else
+		return this->data[idx];
+		#endif
+	}
+
+	__host__ __device__
+	Scalar& operator() (int i, int j) {
+		static_assert(Rank == 2);
+		int idx =
+			i * this->dims[1] +
+			j;
 		#ifdef  __CUDA_ARCH__
 		return this->dev_data[idx];
 		#else
@@ -141,13 +167,16 @@ public:
 	void set_data(Scalar *data) { this->data = data; }
 	void set_dev_data(Scalar *dev_data) { this->dev_data = dev_data; }
 
-	size_t num_elements() {
-		return this->total_size;
+	size_t num_elements() const {
+		size_t res = 1;
+		for (int i = 0; i < Rank; i++)
+			res *= this->dims[i];
+
+		return res;
 	}
 
 private:
 	int dims[Rank];
-	size_t total_size = 0;
 	Scalar *data = nullptr;
 	Scalar *dev_data = nullptr;
 };
