@@ -1,4 +1,5 @@
 #pragma once
+#pragma once
 #include <iostream>
 #include <tuple>
 #include <random>
@@ -11,129 +12,109 @@
 #include "Optimizer.h"
 #include "Helper.h"
 
-class Conv : public Layer {
-	std::shared_ptr<Optimizer> optimizer;
-
-	Eigen::Tensor<float, 4> weights;
-	Eigen::Tensor<float, 4> gradient_weights;
-	Eigen::Tensor<float, 4> bias;
-	Eigen::Tensor<float, 4> gradient_bias;
-
+class Conv {
 	int stride;
 	int num_kernels;
 	int channels;
 	int filter_size;
-	int spatial_pad;
 
-	std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor;
-	Eigen::array<std::pair<int, int>, 4> paddings;
+	Eigen::Tensor<float, 4> weights;
+	Eigen::Tensor<float, 1> bias;
+	std::shared_ptr<Optimizer> optimizer;
+	std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor;
+	std::shared_ptr<Eigen::Tensor<float, 1>> gradient_bias;
+	std::shared_ptr<Eigen::Tensor<float, 4>> gradient_weights;
+	
 
 public:
-
 	Conv(int num_kernels, int channels, int filter_size, int stride) :
-		stride(stride), num_kernels(num_kernels), channels(channels), filter_size(filter_size) {
-		trainable = true;
+		stride(stride), num_kernels(num_kernels), channels(channels), filter_size(filter_size),
+		weights(num_kernels, channels, filter_size, filter_size), bias(num_kernels),
+		gradient_weights(std::make_shared<Eigen::Tensor<float, 4>>(num_kernels, channels, filter_size, filter_size)),
+		gradient_bias(std::make_shared<Eigen::Tensor<float, 1>>(num_kernels)) {
 
-		weights = Eigen::Tensor<float, 4>(num_kernels, channels, filter_size, filter_size);
-		gradient_weights = Eigen::Tensor<float, 4>(num_kernels, channels, filter_size, filter_size);
-		bias = Eigen::Tensor<float, 4>(1, 1, 1, num_kernels);
-		gradient_bias = Eigen::Tensor<float, 4>(1, 1, 1, num_kernels);
+		std::mt19937_64 rng(0.);
+		std::uniform_real_distribution<float> unif(-0.025, 0.025);
 
-		weights.setConstant(0.05);
-		bias.setConstant(0.05);
+		// Initialize weights
+		for (int i = 0; i < num_kernels; i++) {
+			for (int j = 0; j < channels; j++) {
+				for (int x = 0; x < filter_size; x++) {
+					for (int y = 0; y < filter_size; y++) {
+						weights(i, j, x, y) = unif(rng);
+					}
+				}
+			}
+		}
 
-		// Create padding so that tensor size remains the same after correlation/ convolution
-		spatial_pad = static_cast<int>(filter_size / 2);
-		paddings[0] = std::make_pair(0, 0);
-		paddings[1] = std::make_pair(0, 0);
-		paddings[2] = std::make_pair(spatial_pad, spatial_pad);
-		paddings[3] = std::make_pair(spatial_pad, spatial_pad);
+		// Initialize bias
+		for (int i = 0; i < num_kernels; i++) {
+			bias(i) = unif(rng);
+		}
 	}
 
-	std::shared_ptr<Eigen::Tensor<float, 4>> forward(std::shared_ptr<Eigen::Tensor<float, 4> const> input_tensor) {
-		this->input_tensor = input_tensor;
-		auto input_dims = input_tensor->dimensions();
-
-		Eigen::Tensor<float, 4> padded_input = input_tensor->pad(paddings);
-
-		int out_x = static_cast<int>((input_dims[2] - filter_size + 2 * spatial_pad) / stride + 1);
-		int out_y = static_cast<int>((input_dims[3] - filter_size + 2 * spatial_pad) / stride + 1);
-		auto feature_maps = std::make_shared<Eigen::Tensor<float, 4>>(input_dims[0], num_kernels, out_x, out_y);
-		correlate(padded_input, *feature_maps, stride, true);
-
-		return feature_maps;
-
+	std::shared_ptr<Eigen::Tensor<float, 4>> forward(std::shared_ptr<Eigen::Tensor<float, 4>> input_tensor) {
+		this->input_tensor = pad(input_tensor, filter_size / 2, filter_size / 2);
+		return convolutionForward(this->input_tensor,
+			input_tensor->dimension(2),
+			input_tensor->dimension(3));
 	}
 
+	std::shared_ptr<Eigen::Tensor<float, 4>> backward(std::shared_ptr<Eigen::Tensor<float, 4>> error_tensor) {
+		auto upsampled_error = stride != 1 ? upsample(error_tensor) : error_tensor;
+		auto padded_error = pad(upsampled_error, filter_size / 2, filter_size / 2);
 
-	std::shared_ptr<Eigen::Tensor<float, 4>> backward(std::shared_ptr<Eigen::Tensor<float, 4> const> error_tensor) {
+		int batch_size = error_tensor->dimension(0),
+			width = input_tensor->dimension(2) - 2 * (filter_size / 2),
+			height = input_tensor->dimension(3) - 2 * (filter_size / 2);
 
-		auto input_dims = input_tensor->dimensions();
-		auto error_dims = error_tensor->dimensions();
+		auto next_error = convolutionBackward(padded_error, width, height);
 
-		/* Next error tensor: Gradient w.r.t the different channels of the input */
+		gradient_weights->setZero();
 
-		// Upsample error tensor if stride was > 1
-		Eigen::Tensor<float, 4> upsampled_error_tensor(input_dims[0], num_kernels, input_dims[2], input_dims[3]);
+		for (int b = 0; b < batch_size; b++) {
+			for (int i = 0; i < filter_size; i++) {
+				for (int j = 0; j < filter_size; j++) {
+					for (int k = 0; k < num_kernels; k++) {
+						for (int c = 0; c < channels; c++) {
+							float err = 0.0;
 
-		for (int i = 0; i < error_dims[0]; i++) {
-			for (int j = 0; j < error_dims[1]; j++) {
-				for (int x = 0, s_x = 0; x < error_dims[2]; x++, s_x+=stride) {
-					for (int y = 0, s_y = 0; y < error_dims[3]; y++, s_y+=stride) {
-						upsampled_error_tensor(i, j, s_x, s_y) = (*error_tensor)(i, j, x, y);
+							for (int x = 0; x < width; x += stride) {
+								for (int y = 0; y < height; y += stride) {
+									err += (*input_tensor)(b, c, x + i, y + j) * (*upsampled_error)(b, k, x, y);
+								}
+							}
+
+							(*gradient_weights)(k, c, i, j) = err;
+						}
 					}
 				}
 			}
 		}
 
 
-		Eigen::Tensor<float, 4> const & padded_error_tensor = upsampled_error_tensor.pad(paddings);
-		auto feature_maps = std::make_shared<Eigen::Tensor<float, 4>>(input_dims);
-		convolve(padded_error_tensor, *feature_maps, 1, false);
-		
-		/* Gradient w.r.t. the bias and weights*/
-		gradient_bias.setZero();
-		gradient_weights.setZero();
+		gradient_bias->setZero();
+		int output_width = error_tensor->dimension(2), output_height = error_tensor->dimension(3);
 
-		for (int i = 0; i < input_dims[0]; i++) {
-			for (int j = 0; j < num_kernels; j++) {
-				for (int x = 0; x < input_dims[2]; x++) {
-					for (int y = 0; y < input_dims[3]; y++) {
-						gradient_bias(0, 0, 0, j) += upsampled_error_tensor(i, j, x, y);
+		for (int k = 0; k < num_kernels; k++) {
+			float err = 0.0;
+			for (int b = 0; b < batch_size; b++) {
+				for (int x = 0; x < output_width; x++) {
+					for (int y = 0; y < output_height; y++) {
+						err += (*error_tensor)(b, k, x, y);
 					}
 				}
 			}
+			(*gradient_bias)(k) = err;
 		}
 
 
-		Eigen::Tensor<float, 4> const & padded_input_tensor = input_tensor->pad(paddings);
-		Eigen::Tensor<float, 3> kernel_gradient(channels, filter_size, filter_size);
-
-		for (int i = 0; i < error_dims[0]; i++) {
-			for (int j = 0; j < error_dims[1]; j++) {
-				Eigen::Tensor<float, 2> const& slice = upsampled_error_tensor.chip(0, 0).chip(j, 0);
-				Eigen::Tensor<float, 3> const& input_sample = padded_input_tensor.chip(i, 0);
-				correlate3D(input_sample, slice, kernel_gradient);
-				gradient_weights.chip(j, 0) += kernel_gradient;
-			}
-		}
-
-
-		// Update weights and bias
 		if (optimizer) {
-			weights = optimizer->calculateUpdate(weights, gradient_weights);
-			bias = optimizer->calculateUpdate(bias, gradient_bias);
+			weights = optimizer->calculateUpdate(weights, *gradient_weights);
+			bias = optimizer->calculateUpdate(bias, *gradient_bias);
 		}
-
-		return feature_maps;
-	}
-
-	void setWeights(Eigen::Tensor<float, 4> weights) {
-		this->weights = weights;
-	}
-
-	void setBias(Eigen::Tensor<float, 4> bias) {
-		this->bias = bias;
+		
+		return next_error;
 	}
 
 	void setOptimizer(std::shared_ptr<Optimizer> optimizer) {
@@ -148,84 +129,131 @@ public:
 		return weights;
 	}
 
-	Eigen::Tensor<float, 4> getBias() {
+	Eigen::Tensor<float, 1> getBias() {
 		return bias;
 	}
 
 	Eigen::Tensor<float, 4> getGradientWeights() {
-		return gradient_weights;
+		return *gradient_weights;
 	}
 
-	Eigen::Tensor<float, 4> getGradientBias() {
-		return gradient_bias;
+	Eigen::Tensor<float, 1> getGradientBias() {
+		return *gradient_bias;
 	}
 
+	void setWeights(Eigen::Tensor<float, 4> weights) {
+		this->weights = weights;
+	}
 
+	void setBias(Eigen::Tensor<float, 1> bias) {
+		this->bias = bias;
+	}
 
 private:
-	void convolve(const Eigen::Tensor<float, 4>& input, Eigen::Tensor<float, 4>& feature_maps, int stride, bool add_bias) {
-		// Swap kernel axes (batch and color channel) and reverse dims
-		Eigen::Tensor<float, 4> r_weights = reverseKernelDims();
-		correlate2D(input, feature_maps, r_weights, stride, add_bias);
+	std::shared_ptr<Eigen::Tensor<float, 4>>
+		pad(std::shared_ptr<Eigen::Tensor<float, 4>> input, int px, int py) {
+		int batch_size = input->dimension(0),
+			channels = input->dimension(1),
+			width = input->dimension(2),
+			height = input->dimension(3);
+
+		auto output = std::make_shared<Eigen::Tensor<float, 4>>(
+			batch_size, channels, width + 2 * px, height + 2 * py);
+		output->setZero();
+
+		for (int b = 0; b < batch_size; b++) {
+			for (int c = 0; c < channels; c++) {
+				for (int x = 0; x < width; x++) {
+					for (int y = 0; y < height; y++) {
+						(*output)(b, c, x + px, y + py) = (*input)(b, c, x, y);
+					}
+				}
+			}
+		}
+
+		return output;
 	}
 
-	Eigen::Tensor<float, 4> reverseKernelDims() {
-		Eigen::array<int, 4> shuffle({ 1, 0, 2, 3 });
-		Eigen::array<bool, 4> reverse({ true, false, true, true });
+	std::shared_ptr<Eigen::Tensor<float, 4>>
+		upsample(std::shared_ptr<Eigen::Tensor<float, 4>> input) {
+		int batch_size = input->dimension(0),
+			channels = input->dimension(1),
+			width = input->dimension(2),
+			height = input->dimension(3);
 
-		Eigen::Tensor<float, 4> const & s_weights = weights.shuffle(shuffle);
-		Eigen::Tensor<float, 4> const & r_weights = s_weights.reverse(reverse);
+		auto output = std::make_shared<Eigen::Tensor<float, 4>>(
+			batch_size, channels, width * stride, height * stride);
+		output->setZero();
 
-		return r_weights;
+		for (int b = 0; b < batch_size; b++) {
+			for (int c = 0; c < channels; c++) {
+				for (int x = 0; x < width; x++) {
+					for (int y = 0; y < height; y++) {
+						(*output)(b, c, x * stride, y * stride) = (*input)(b, c, x, y);
+					}
+				}
+			}
+		}
+
+		return output;
 	}
 
-	void correlate(const Eigen::Tensor<float, 4>& input, Eigen::Tensor<float, 4>& feature_maps, int stride, bool add_bias) {
-		correlate2D(input, feature_maps, weights, stride, add_bias);
-	}
+	std::shared_ptr<Eigen::Tensor<float, 4>>
+		convolutionForward(std::shared_ptr<Eigen::Tensor<float, 4>> input, int output_width, int output_height) {
+		int batch_size = input->dimension(0);
+		auto output = std::make_shared<Eigen::Tensor<float, 4>>(
+			batch_size, num_kernels, output_width, output_height);
 
-	void correlate2D(Eigen::Tensor<float, 4> const & input, Eigen::Tensor<float, 4>& feature_maps, Eigen::Tensor<float, 4> const & kernels, int stride, bool add_bias) {
-		auto output_dims = feature_maps.dimensions();
-		auto kernel_dims = kernels.dimensions();
-		feature_maps.setZero();
-
-		for (int i = 0; i < output_dims[0]; i++) {
-			for (int j = 0; j < output_dims[1]; j++) {
-				for (int x = 0, s_x = 0; x < output_dims[2]; x++, s_x += stride) {
-					for (int y = 0, s_y = 0; y < output_dims[3]; y++, s_y += stride) {
-						for (int c = 0; c < kernel_dims[1]; c++) {
-							for (int k = 0; k < kernel_dims[2]; k++) {
-								for (int l = 0; l < kernel_dims[3]; l++) {
-									feature_maps(i, j, x, y) += input(i, c, s_x + k, s_y + l) * kernels(j, c, k, l);
+		for (int b = 0; b < batch_size; b++) {
+			for (int k = 0; k < num_kernels; k++) {
+				for (int x = 0; x < output_width; x++) {
+					for (int y = 0; y < output_height; y++) {
+						float val = 0.0;
+						for (int c = 0; c < channels; c++) {
+							for (int i = 0; i < filter_size; i++) {
+								for (int j = 0; j < filter_size; j++) {
+									val += (*input)(b, c, x * stride + i, y * stride + j)
+										* weights(k, c, i, j);
 								}
 							}
 						}
-						if (add_bias)
-							feature_maps(i, j, x, y) += bias(j);
+
+						(*output)(b, k, x, y) = val + bias(k);
 					}
 				}
 			}
 		}
+
+		return output;
 	}
 
+	std::shared_ptr<Eigen::Tensor<float, 4>>
+		convolutionBackward(std::shared_ptr<Eigen::Tensor<float, 4>> input, int output_width, int output_height) {
+		int batch_size = input->dimension(0);
+		auto output = std::make_shared<Eigen::Tensor<float, 4>>(
+			batch_size, channels, output_width, output_height);
 
-	void correlate3D(Eigen::Tensor<float, 3> const& input, Eigen::Tensor<float, 2> const& kernel, Eigen::Tensor<float, 3>& output) {
-		auto output_dims = output.dimensions();
-		auto kernel_dims = kernel.dimensions();
-		auto input_dims = input.dimensions();
-		output.setZero();
-
-		for (int i = 0; i < output_dims[0]; i++) {
-			for (int j = 0; j < output_dims[1]; j++) {
-				for (int k = 0; k < output_dims[2]; k++) {
-					for (int x = 0; x < kernel_dims[0]; x++) {
-						for (int y = 0; y < kernel_dims[1]; y++) {
-							output(i, j, k) += input(i, x + j, y + k) * kernel(x, y);
+		for (int b = 0; b < batch_size; b++) {
+			for (int c = 0; c < channels; c++) {
+				for (int x = 0; x < output_width; x++) {
+					for (int y = 0; y < output_height; y++) {
+						float val = 0.0;
+						for (int k = 0; k < num_kernels; k++) {
+							for (int i = 0; i < filter_size; i++) {
+								for (int j = 0; j < filter_size; j++) {
+									val += (*input)(b, k, x * stride + i, y * stride + j)
+										* weights(k, c, filter_size - i - 1, filter_size - j - 1);
+								}
+							}
 						}
+
+						(*output)(b, c, x, y) = val;
 					}
 				}
 			}
 		}
-		
+
+		return output;
 	}
 
 };

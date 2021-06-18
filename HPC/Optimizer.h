@@ -3,6 +3,8 @@
 #include <math.h>
 #include <unsupported/Eigen/CXX11/Tensor>
 
+#include "Helper.h"
+
 class Optimizer {
 
 public:
@@ -21,30 +23,41 @@ public:
 		return weight_tensor - learning_rate * gradient_tensor;
 	}
 
-	Eigen::Tensor<float, 1> calculateUpdate(Eigen::Tensor<float, 1> &weight_tensor, Eigen::Tensor<float, 1> &gradient_tensor) {
-		return weight_tensor - learning_rate * gradient_tensor;
+	Eigen::Tensor<float, 1> calculateUpdate(Eigen::Tensor<float, 1> &bias, Eigen::Tensor<float, 1> &gradient_bias) {
+		return bias - learning_rate * gradient_bias;
+	}
+
+};
+
+
+class SgdWithMomentum : public Optimizer {
+	float learning_rate;
+	float momentum_rate;
+	Eigen::Tensor<float, 4> v_weight;
+	Eigen::Tensor<float, 1> v_bias;
+	
+public:
+	SgdWithMomentum(float learning_rate, float momentum_rate, std::tuple<int, int, int, int> weight_dims) : 
+		learning_rate(learning_rate), momentum_rate(momentum_rate),
+		v_weight(std::get<0>(weight_dims), std::get<1>(weight_dims), std::get<2>(weight_dims), std::get<3>(weight_dims)),
+		v_bias(std::get<0>(weight_dims))
+	{
+		v_weight.setConstant(0);
+		v_bias.setConstant(0);
+	}
+
+	Eigen::Tensor<float, 4> calculateUpdate(Eigen::Tensor<float, 4>& weight_tensor, Eigen::Tensor<float, 4>& gradient_tensor) {
+		v_weight = momentum_rate * v_weight - learning_rate * gradient_tensor;
+		return weight_tensor + v_weight;
+	}
+
+	Eigen::Tensor<float, 1> calculateUpdate(Eigen::Tensor<float, 1>& bias, Eigen::Tensor<float, 1>& gradient_bias) {
+		v_bias = momentum_rate * v_bias - learning_rate * gradient_bias;
+		return gradient_bias + v_bias;
 	}
 };
 
 #if 0
-class SgdWithMomentum : public Optimizer {
-	float learning_rate;
-	float momentum_rate;
-	Eigen::Tensor<float, 4> v;
-	
-public:
-	SgdWithMomentum(float learning_rate, float momentum_rate, std::tuple<int, int, int, int> kernel_dims) : learning_rate(learning_rate), momentum_rate(momentum_rate) {
-		v = Eigen::Tensor<float, 4>(std::get<0>(kernel_dims), std::get<1>(kernel_dims), std::get<2>(kernel_dims), std::get<3>(kernel_dims));
-		v.setConstant(0.0f);
-	}
-
-	Eigen::Tensor<float, 4> calculateUpdate(Eigen::Tensor<float, 4> weight_tensor, Eigen::Tensor<float, 4> gradient_tensor) {
-		v = momentum_rate * v - learning_rate * gradient_tensor;
-		return weight_tensor + v;
-	}
-};
-
-
 class Adam : public Optimizer {
 	float learning_rate;
 	float mu;
@@ -73,5 +86,5 @@ class Adam : public Optimizer {
 
 		return weight_tensor - learning_rate * v_corr / (r_corr.sqrt() + eps);
 	}
-};
+}
 #endif

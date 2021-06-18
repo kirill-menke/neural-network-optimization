@@ -16,7 +16,7 @@ Eigen::Tensor<float, 4> weights2d(2, 1, 3, 3);
 Eigen::Tensor<float, 4> error_next2d(1, 2, 14, 14);
 Eigen::Tensor<float, 4> expected_error_prev2d(1, 1, 14, 14);
 
-Eigen::Tensor<float, 4> expected_gradient_bias2d(1, 1, 1, 2);
+Eigen::Tensor<float, 1> expected_gradient_bias2d(2);
 Eigen::Tensor<float, 4> expected_gradient_weights2d(2, 1, 3, 3);
 
 
@@ -29,11 +29,11 @@ Eigen::Tensor<float, 4> weights3d(2, 2, 3, 3);
 Eigen::Tensor<float, 4> error_next3d(1, 2, 14, 14);
 Eigen::Tensor<float, 4> expected_error_prev3d(1, 2, 14, 14);
 
-Eigen::Tensor<float, 4> expected_gradient_bias3d(1, 1, 1, 2);
+Eigen::Tensor<float, 1> expected_gradient_bias3d(2);
 Eigen::Tensor<float, 4> expected_gradient_weights3d(2, 2, 3, 3);
 
 
- void testConvForward2D(Eigen::Tensor<float, 4> bias, int times = 1) {
+ void testConvForward2D(Eigen::Tensor<float, 1> bias, int times = 1) {
     Conv conv(2, 1, 3, 1);
     conv.setWeights(weights2d);
     conv.setBias(bias);
@@ -65,7 +65,7 @@ Eigen::Tensor<float, 4> expected_gradient_weights3d(2, 2, 3, 3);
  }
 
 
- void testConvForward3D(Eigen::Tensor<float, 4> bias, int times = 1) {
+ void testConvForward3D(Eigen::Tensor<float, 1> bias, int times = 1) {
      Conv conv(2, 2, 3, 1);
      conv.setWeights(weights3d);
      conv.setBias(bias);
@@ -102,8 +102,8 @@ Eigen::Tensor<float, 4> expected_gradient_weights3d(2, 2, 3, 3);
  void testConvBackward2D(int times = 1) {
      Conv conv(2, 1, 3, 1);
      conv.setWeights(weights2d);
-     Eigen::Tensor<float, 4> bias(1, 1, 1, 2);
-     bias.setValues({ {{{ 0.5, 1 }}} });
+     Eigen::Tensor<float, 1> bias(2);
+     bias.setValues({ 0.5, 1 });
      conv.setBias(bias);
 
      
@@ -130,8 +130,8 @@ Eigen::Tensor<float, 4> expected_gradient_weights3d(2, 2, 3, 3);
  void testConvBackward3D(int times = 1) {
      Conv conv(2, 2, 3, 1);
      conv.setWeights(weights3d);
-     Eigen::Tensor<float, 4> bias(1, 1, 1, 2);
-     bias.setValues({ {{{ 0.5, 1.0 }}} });
+     Eigen::Tensor<float, 1> bias(2);
+     bias.setValues({ 0.5, 1.0 });
      conv.setBias(bias);
 
 
@@ -155,12 +155,12 @@ Eigen::Tensor<float, 4> expected_gradient_weights3d(2, 2, 3, 3);
  }
 
 
-int main() {
+int main_() {
     initializeInputs();
-    Eigen::Tensor<float, 4> zero_bias(1, 1, 1, 2);
-    Eigen::Tensor<float, 4> non_zero_bias(1, 1, 1, 2);
-    zero_bias.setValues({ {{{ 0., 0. }}} });
-    non_zero_bias.setValues({ {{{ 0.5, -0.5 }}} });
+    Eigen::Tensor<float, 1> zero_bias(2);
+    Eigen::Tensor<float, 1> non_zero_bias(2);
+    zero_bias.setValues({ 0., 0. });
+    non_zero_bias.setValues({ 0.5, -0.5 });
 
     std::cout << "------ CONVOLUTION LAYER TESTS ------" << std::endl;
     std::cout << "2D Convolution forward without bias: ";
@@ -179,7 +179,7 @@ int main() {
 	testConvForward3D(non_zero_bias, 3);
 
     std::cout << "2D Convolution backward one time: ";
-    testConvBackward2D();
+    testConvBackward2D(1);
 
     std::cout << "3D Convolution backward one time: ";
     testConvBackward3D();
@@ -187,7 +187,6 @@ int main() {
     std::cout << "Convolution backward multiple times: ";
     testConvBackward3D(3);
 
-    // TODO: Pooling Layer tests
     return 0;
 }
 
@@ -410,7 +409,8 @@ void initializeInputs() {
         {-18.75, -22.5, -18.75}}}});
 
 
-    expected_gradient_weights3d.setValues({{{{ 18.75, 22.5, 18.75},
+    expected_gradient_weights3d.setValues({{{
+        { 18.75, 22.5, 18.75},
         {22.5, 27., 22.5},
         {18.75, 22.5, 18.75}},
 
@@ -428,6 +428,6 @@ void initializeInputs() {
         {-18.75, -22.5, -18.75}} } });
 
 
-    expected_gradient_bias2d.setValues({ {{{ 33., -33. }}} });
+    expected_gradient_bias2d.setValues({ 33., -33. });
     expected_gradient_bias3d = expected_gradient_bias2d;
 }

@@ -68,42 +68,50 @@ float correctDigits(std::shared_ptr<Eigen::Tensor<float, 2>> truth, std::shared_
 }
 
 int main() {
-	int iterations = 5000;
-	int batchSize = 1;
-	float learning_rate = 5e-5f;
+	int iterations = 10000;
+	int batchSize = 64;
+	float learning_rate = 0.01;
 
 	MNISTLoader loader("../data/mnist-train.txt");
+	loader.loadFullDataset();
+	
+	// https://www.kaggle.com/cdeotte/how-to-choose-cnn-architecture-mnist
 
 	/* B x 1 x 28 x 28 */
-	Conv conv1(3, 1, 3, 1);
-	/* B x 3 x 28 x 28 */
+	Conv conv1(8, 1, 3, 1);
+	/* B x 32 x 28 x 28 */
 	ReLU reLu1;
-	/* B x 3 x 28 x 28 */
+	/* B x 32 x 28 x 28 */
 	MaxPool maxPool1(2, 2, 2, 2);
-	/* B x 3 x 14 x 14 */
-	Conv conv2(3, 3, 3, 1);
-	/* B x 3 x 14 x 14 */
+	/* B x 32 x 14 x 14 */
+	Conv conv2(16, 8, 3, 1);
+	/* B x 64 x 14 x 14 */
 	ReLU reLu2;
-	/* B x 3 x 14 x 14 */
+	/* B x 64 x 14 x 14 */
 	MaxPool maxPool2(2, 2, 2, 2);
-	/* B x 3 x 7 x 7 */
+	/* B x 64 x 7 x 7 */
 	Flatten flatten;
-	/* B x 147 x 1 x 1 */
-	Conv conv3(10, 147, 1, 1);
+	/* B x 64*7*7 x 1 x 1 */
+	Conv conv3(10, 16*7*7, 1, 1);
 	/* B x 10 x 1 x 1*/
 	FlattenRank flattenRank;
 	/* B x 10 */
 	SoftMax softMax;
 	/* B x 10 */
 
+	//auto opt1 = std::make_shared<SgdWithMomentum>(learning_rate, 0.9, std::tuple<int, int, int, int>{4, 1, 3, 3});
+	//auto opt2 = std::make_shared<SgdWithMomentum>(learning_rate, 0.9, std::tuple<int, int, int, int>{8, 4, 3, 3});
+	//auto opt3 = std::make_shared<SgdWithMomentum>(learning_rate, 0.9, std::tuple<int, int, int, int>{10, 8*7*7, 1, 1});
+
 	auto opt1 = std::make_shared<Sgd>(learning_rate);
-	conv1.setOptimizer(opt1);
 	auto opt2 = std::make_shared<Sgd>(learning_rate);
-	conv2.setOptimizer(opt2);
 	auto opt3 = std::make_shared<Sgd>(learning_rate);
+
+	conv1.setOptimizer(opt1);
+	conv2.setOptimizer(opt2);
 	conv3.setOptimizer(opt3);
 
-	auto initializer = std::make_shared<Constant>(0.05);
+	auto initializer = std::make_shared<UniformRandom>();
 	conv1.setInitializer(initializer);
 	conv2.setInitializer(initializer);
 	conv3.setInitializer(initializer);
@@ -111,27 +119,27 @@ int main() {
 	CrossEntropyLoss lossLayer;
 
 	auto train = [&](int i) -> float {
-		auto batch = loader.loadBatch(batchSize);
+		auto batch = loader.getBatch(batchSize);
 		auto labels = batch.first;
 		auto images = batch.second;
 		assertSize(images, batchSize, 1, 28, 28);
 
 		// Forward:
-
 		auto tensor1 = reLu1.forward(conv1.forward(images));
-		assertSize(tensor1, batchSize, 3, 28, 28);
+		// assertSize(tensor1, batchSize, 32, 28, 28);
 		tensor1 = maxPool1.forward(tensor1);
-		assertSize(tensor1, batchSize, 3, 14, 14);
+		// assertSize(tensor1, batchSize, 32, 14, 14);
 
 		auto tensor2 = reLu2.forward(conv2.forward(tensor1));
-		assertSize(tensor2, batchSize, 3, 14, 14);
+		// assertSize(tensor2, batchSize, 64, 14, 14);
 		tensor2 = maxPool2.forward(tensor2);
-		assertSize(tensor2, batchSize, 3, 7, 7);
+		// assertSize(tensor2, batchSize, 64, 7, 7);
 
 		auto tensor3 = conv3.forward(flatten.forward(tensor2));
-		assertSize(tensor3, batchSize, 10, 1, 1);
+		// assertSize(tensor3, batchSize, 10, 1, 1);
 		auto res = softMax.forward(flattenRank.forward(tensor3));
-		assertSize(res, batchSize, 10);
+		
+		// assertSize(res, batchSize, 10);
 
 		float loss = lossLayer.forward(res, labels);
 		if (i % 25 == 0) {
@@ -141,30 +149,24 @@ int main() {
 
 		// Backward:
 
-		auto lossErr = lossLayer.backward(labels);
-		printTensor(*lossErr);
+		auto loss_err = lossLayer.backward(labels);
+		auto err = flattenRank.backward(softMax.backward(loss_err));
+		// assertSize(err, batchSize, 10, 1, 1);
 
-		auto softMaxErr = softMax.backward(lossErr);
-		printTensor(*softMaxErr);
-		auto err = flattenRank.backward(softMaxErr);
-		
-
-		assertSize(err, batchSize, 10, 1, 1);
 		auto err3 = conv3.backward(err);
-		printTensor(*err3);
-
-		assertSize(err3, batchSize, 147, 1, 1);
+		// assertSize(err3, batchSize, 147, 1, 1);
 
 		auto err2 = maxPool2.backward(flatten.backward(err3));
-		assertSize(err2, batchSize, 3, 14, 14);
+		// assertSize(err2, batchSize, 3, 14, 14);
+
 		err2 = conv2.backward(reLu2.backward(err2));
-		assertSize(err2, batchSize, 3, 14, 14);
+		// assertSize(err2, batchSize, 3, 14, 14);
 
 		auto err1 = maxPool1.backward(err2);
-		assertSize(err1, batchSize, 3, 28, 28);
+		// assertSize(err1, batchSize, 3, 28, 28);
+
 		err1 = conv1.backward(reLu1.backward(err1));
-		printTensor(*err1);
-		assertSize(err1, batchSize, 1, 28, 28);
+		// assertSize(err1, batchSize, 1, 28, 28);
 
 		return loss;
 	};
