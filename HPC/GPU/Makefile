@@ -10,8 +10,8 @@ CUFLAGS=-g -G -std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_o
 
 .PHONY: clean
 
-test: ./test.cpp ./GPUConv.cu ./GPUConv.h ./Tensor.h
-	$(CUXX) $(CUFLAGS) -o $@ ./test.cpp ./GPUConv.cu
+test: ./test.cpp ./GPUConv.cu ./GPUConv.h ./GPUMaxPool.cu ./GPUMaxPool.h ./Tensor.h
+	$(CUXX) $(CUFLAGS) -o $@ ./test.cpp ./GPUConv.cu ./GPUMaxPool.cu
 
 clean:
 	rm -rf ./test
