@@ -86,6 +86,22 @@ public:
 			fprintf(f, i == this->num_elements() - 1 ? "%f\n" : "%f, ", this->data[i]);
 	}
 
+	void setConstant(Scalar value, bool set_gpu) {
+		int n = this->num_elements();
+		for (int i = 0; i < n; i++)
+			this->data[i] = value;
+		if (set_gpu)
+			this->moveToDevice();
+	}
+
+	void setZero(bool set_gpu) {
+		int n = this->num_elements();
+		if (!set_gpu)
+			this->setConstant(0, false);
+		else
+			cudaErrchk(cudaMemset(this->dev_data, 0, n * sizeof(Scalar)));
+	}
+
 	__host__ __device__
 	int dim(int i) const {
 		return this->dims[i];
