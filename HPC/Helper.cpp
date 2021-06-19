@@ -89,31 +89,71 @@ MNISTLoader::loadBatch(int batchSize)
 }
 
 
-void MNISTLoader::loadFullDataset() {
-	images = Eigen::Tensor<float, 4>(IMAGE_NUM, 1, IMAGE_HEIGHT, IMAGE_WIDTH);
-	numbers = Eigen::Tensor<float, 2>(IMAGE_NUM, 10);
-	image_order = std::vector<int>(IMAGE_NUM);
-	std::iota(image_order.begin(), image_order.end(), 0);
+void MNISTLoader::loadFullDataset(float testSize, bool shuffle) {
+	int test_num = static_cast<int>(testSize * IMAGE_NUM);
+	int train_num = IMAGE_NUM - test_num;
 
+	train_images = Eigen::Tensor<float, 4>(train_num, 1, IMAGE_HEIGHT, IMAGE_WIDTH);
+	train_labels = Eigen::Tensor<float, 2>(train_num, 10);
+	test_images = std::make_shared<Eigen::Tensor<float, 4>>(test_num, 1, IMAGE_HEIGHT, IMAGE_WIDTH);
+	test_labels = std::make_shared<Eigen::Tensor<float, 2>>(test_num, 10);
+
+	train_order = std::vector<int>(train_num);
+	std::iota(train_order.begin(), train_order.end(), 0);
+	
+	// First load data, then shuffle, and then assign to train/test tensors
+	Eigen::Tensor<float, 4> all_images(IMAGE_NUM, 1, IMAGE_HEIGHT, IMAGE_WIDTH);
+	Eigen::Tensor<float, 2> all_labels(IMAGE_NUM, 10);
+	
 	std::string line;
-	int cnt = 0;
-	while (cnt < IMAGE_NUM)
-	{
+	for (int i = 0; i < IMAGE_NUM; i++) {
 		std::getline(file, line);
 		std::istringstream iss(line);
 		int digit;
 		iss >> digit;
-		numbers(cnt, digit) = 1.0f;
+		all_labels(i, digit) = 1.0f;
 
 		for (int y = 0; y < IMAGE_HEIGHT; y++) {
 			for (int x = 0; x < IMAGE_WIDTH; x++) {
 				int pixel;
 				iss >> pixel;
-				images(cnt, 0, y, x) = normalize(pixel);
+				all_images(i, 0, y, x) = normalize(pixel);
+			}
+		}
+	}
+
+	std::vector<int> order(IMAGE_NUM);
+	std::iota(order.begin(), order.end(), 0);
+	
+	if (shuffle) {
+		std::shuffle(order.begin(), order.end(), rand_gen);
+	}
+
+	for (int i = 0; i < train_num; i++) {
+		int idx = order[i];
+		for (int y = 0; y < IMAGE_HEIGHT; y++) {
+			for (int x = 0; x < IMAGE_WIDTH; x++) {
+				train_images(i, 0, y, x) = all_images(idx, 0, y, x);
 			}
 		}
 
-		cnt++;
+		for (int j = 0; j < 10; j++) {
+			train_labels(i, j) = all_labels(idx, j);
+		}
+	}
+
+	for (int i = 0; i < test_num; i++) {
+		int idx = order[train_num + i];
+
+		for (int y = 0; y < IMAGE_HEIGHT; y++) {
+			for (int x = 0; x < IMAGE_WIDTH; x++) {
+				(*test_images)(i, 0, y, x) = all_images(idx, 0, y, x);
+			}
+		}
+
+		for (int j = 0; j < 10; j++) {
+			(*test_labels)(i, j) = all_labels(idx, j);
+		}
 	}
 }
 
@@ -123,9 +163,9 @@ MNISTLoader::getBatch(int batchSize) {
 	static int batch_count = 0;
 	static int epoch = 1;
 	
-	if (batch_count + batchSize > IMAGE_NUM) {
+	if (batch_count + batchSize > train_images.dimension(0)) {
 		std::cout << "\n<<< Epoch " << ++epoch << " >>>" << std::endl;
-		std::shuffle(image_order.begin(), image_order.end(), rand_gen);
+		std::shuffle(train_order.begin(), train_order.end(), rand_gen);
 		batch_count = 0;
 	}
 
@@ -134,16 +174,16 @@ MNISTLoader::getBatch(int batchSize) {
 	auto label_batch = std::make_shared<Eigen::Tensor<float, 2>>(batchSize, 10);
 
 	for (int i = 0; i < batchSize; i++) {
-		int img_idx = image_order[batch_count + i];
+		int img_idx = train_order[batch_count + i];
 		
 		for (int x = 0; x < IMAGE_HEIGHT; x++) {
 			for (int y = 0; y < IMAGE_WIDTH; y++) {
-				(*image_batch)(i, 0, x, y) = images(img_idx, 0, x, y);
+				(*image_batch)(i, 0, x, y) = train_images(img_idx, 0, x, y);
 			}
 		}
 
 		for (int j = 0; j < 10; j++) {
-			(*label_batch)(i, j) = numbers(img_idx, j);
+			(*label_batch)(i, j) = train_labels(img_idx, j);
 		}
 
 	}
@@ -153,6 +193,12 @@ MNISTLoader::getBatch(int batchSize) {
 	batch_count += batchSize;
 
 	return { label_batch, image_batch };
+}
+
+
+std::pair<std::shared_ptr<Eigen::Tensor<float, 2>>, std::shared_ptr<Eigen::Tensor<float, 4>>>
+MNISTLoader::getTestSet() {
+	return { test_labels, test_images };
 }
 
 

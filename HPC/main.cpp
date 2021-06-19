@@ -47,7 +47,7 @@ void assertSize(std::shared_ptr<Eigen::Tensor<float, 2>> tensor, int d1, int d2)
 /*
  * Return percentage of correct predictions:
  */
-float correctDigits(std::shared_ptr<Eigen::Tensor<float, 2>> truth, std::shared_ptr<Eigen::Tensor<float, 2>> prediction) {
+float calculateAccuracy(std::shared_ptr<Eigen::Tensor<float, 2>> truth, std::shared_ptr<Eigen::Tensor<float, 2>> prediction) {
 	int batch_size = truth->dimension(0);
 	int classes = truth->dimension(1);
 	int correct = 0;
@@ -69,11 +69,11 @@ float correctDigits(std::shared_ptr<Eigen::Tensor<float, 2>> truth, std::shared_
 
 int main() {
 	int iterations = 10000;
-	int batchSize = 64;
+	int batchSize = 16;
 	float learning_rate = 0.01;
 
 	MNISTLoader loader("../data/mnist-train.txt");
-	loader.loadFullDataset();
+	loader.loadFullDataset(0.1, true);
 	
 	// https://www.kaggle.com/cdeotte/how-to-choose-cnn-architecture-mnist
 
@@ -118,36 +118,58 @@ int main() {
 
 	CrossEntropyLoss lossLayer;
 
+	auto test = [&]() {
+		auto test_data = loader.getTestSet();
+		auto test_labels = test_data.first;
+		auto test_images = test_data.second;
+
+		auto tensor1 = reLu1.forward(conv1.forward(test_images));
+		tensor1 = maxPool1.forward(tensor1);
+		
+		auto tensor2 = reLu2.forward(conv2.forward(tensor1));
+		tensor2 = maxPool2.forward(tensor2);
+		
+		auto tensor3 = conv3.forward(flatten.forward(tensor2));
+		auto res = softMax.forward(flattenRank.forward(tensor3));
+
+		float accuracy = calculateAccuracy(test_labels, res);
+
+		std::cout << "Accuracy: " << accuracy << std::endl;
+
+	};
+
+
 	auto train = [&](int i) -> float {
 		auto batch = loader.getBatch(batchSize);
 		auto labels = batch.first;
 		auto images = batch.second;
 		assertSize(images, batchSize, 1, 28, 28);
 
-		// Forward:
+
+		/***			Forward				***/
+
 		auto tensor1 = reLu1.forward(conv1.forward(images));
 		// assertSize(tensor1, batchSize, 32, 28, 28);
+
 		tensor1 = maxPool1.forward(tensor1);
 		// assertSize(tensor1, batchSize, 32, 14, 14);
 
 		auto tensor2 = reLu2.forward(conv2.forward(tensor1));
 		// assertSize(tensor2, batchSize, 64, 14, 14);
+
 		tensor2 = maxPool2.forward(tensor2);
 		// assertSize(tensor2, batchSize, 64, 7, 7);
 
 		auto tensor3 = conv3.forward(flatten.forward(tensor2));
 		// assertSize(tensor3, batchSize, 10, 1, 1);
+
 		auto res = softMax.forward(flattenRank.forward(tensor3));
-		
 		// assertSize(res, batchSize, 10);
 
 		float loss = lossLayer.forward(res, labels);
-		if (i % 25 == 0) {
-			float correct = correctDigits(labels, res);
-			printf("Loss: %f, correct: %f\n", loss, correct);
-		}
 
-		// Backward:
+
+		/***			Backward			***/
 
 		auto loss_err = lossLayer.backward(labels);
 		auto err = flattenRank.backward(softMax.backward(loss_err));
@@ -168,11 +190,26 @@ int main() {
 		err1 = conv1.backward(reLu1.backward(err1));
 		// assertSize(err1, batchSize, 1, 28, 28);
 
+
+
+		/***		Print Measures			***/
+
+		if (i % 25 == 0) {
+			float accuracy = calculateAccuracy(labels, res);
+			printf("Loss: %f, correct: %f\n", loss, accuracy);
+		}
+
+		if (i % 1000 == 0) {
+			test();
+		}
+
 		return loss;
 	};
 
+
 	for (int i = 0; i < iterations; i++)
 		train(i);
+
 
 	return 0; 
 }

@@ -31,10 +31,13 @@ public:
 	std::pair<std::shared_ptr<Eigen::Tensor<float, 2>>, std::shared_ptr<Eigen::Tensor<float, 4>>> loadBatch(int batchSize);
 
 	/* Loads all images into RAM */
-	void loadFullDataset();
+	void loadFullDataset(float testSize, bool shuffle);
 
-	/* Returns batch and shuffles data after one epoch*/
+	/* Returns batch and shuffles data after one epoch */
 	std::pair<std::shared_ptr<Eigen::Tensor<float, 2>>, std::shared_ptr<Eigen::Tensor<float, 4>>> getBatch(int batchSize);
+
+	/* Returns test dataset */
+	std::pair<std::shared_ptr<Eigen::Tensor<float, 2>>, std::shared_ptr<Eigen::Tensor<float, 4>>> getTestSet();
 	
 
 private:
@@ -42,9 +45,13 @@ private:
 	int line = 0;
 
 	std::mt19937_64 rand_gen;
-	Eigen::Tensor<float, 4> images;
-	Eigen::Tensor<float, 2> numbers;
-	std::vector<int> image_order;
+	std::vector<int> train_order;
+
+	Eigen::Tensor<float, 4> train_images;
+	Eigen::Tensor<float, 2> train_labels;
+	std::shared_ptr<Eigen::Tensor<float, 4>> test_images;
+	std::shared_ptr<Eigen::Tensor<float, 2>> test_labels;
+
 
 	/*
 	 * Scales the data range down from [0, 255] to [0, 1].
