@@ -68,14 +68,12 @@ static void convolution(Tensor<float, 4> input, Tensor<float, 4> output, Tensor<
 	int b = threadIdx.z + blockIdx.z * blockDim.z;
 
 	int batchSize = input.dim(0), inputChannels = input.dim(1),
-	    width = input.dim(2), height = input.dim(3),
+	    outputWidth = output.dim(2), outputHeight = output.dim(3),
 	    outputChannels = output.dim(1);
 
 	int filterWidth = weights.dim(2), filterHeight = weights.dim(3);
 
-	int inputX = x * strideX;
-	int inputY = y * strideY;
-	if (b > batchSize || inputX >= input.dim(2) - filterWidth || inputY >= input.dim(3) - filterHeight)
+	if (b > batchSize || x >= outputWidth || y >= outputHeight)
 		return;
 
 	for (int cout = 0; cout < outputChannels; cout++) {
@@ -84,10 +82,11 @@ static void convolution(Tensor<float, 4> input, Tensor<float, 4> output, Tensor<
 		for (int cin = 0; cin < inputChannels; cin++) {
 			for (int i = 0; i < filterWidth; i++) {
 				for (int j = 0; j < filterHeight; j++) {
+					float inputVal = input(b, cin, x * strideX + i, y * strideY + j);
 					if (backward)
-						value += input(b, cin, inputX + i, inputY + j) * weights.flipped(cin, cout, i, j);
+						value += inputVal * weights.flipped(cin, cout, i, j);
 					else
-						value += input(b, cin, inputX + i, inputY + j) * weights(cout, cin, i, j);
+						value += inputVal * weights(cout, cin, i, j);
 				}
 			}
 		}
