@@ -4,6 +4,7 @@
 // #include "unsupported/Eigen/CXX11/Tensor"
 
 #include "Tensor.h"
+#include "GPUOptimizer.h"
 
 class GPUConv {
 public:
@@ -41,6 +42,8 @@ public:
 	int strideY;
 	Tensor<float, 4> weights;
 	Tensor<float, 1> bias;
+
+	GPUSgd *optimizer = nullptr;
 
 private:
 	Tensor<float, 4> *padded_input = nullptr;

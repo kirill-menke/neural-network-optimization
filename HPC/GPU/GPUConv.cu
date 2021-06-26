@@ -266,7 +266,9 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 		convBackwardGradientBias<<<gridDim, blockDim>>>(error_tensor, gradient_bias);
 	}
 
-	// TODO: Pass gradient_weights/bias on to Optimizer or something like that!
+	if (this->optimizer != nullptr)
+		this->optimizer->update(weights, bias, gradient_weights, gradient_bias);
+
 	gradient_weights.destroy();
 	gradient_bias.destroy();
 

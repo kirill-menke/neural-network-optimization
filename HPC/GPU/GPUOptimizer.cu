@@ -23,12 +23,9 @@ static void update_kernel(Tensor<float, 4> weights, Tensor<float, 1> bias, float
 void GPUSgd::update(Tensor<float, 4> weights, Tensor<float, 1> bias,
 		Tensor<float, 4> gradient_weights, Tensor<float, 1> gradient_bias) {
 
-	{
-		dim3 gridDim = getGridDim(weights.dim(2), weights.dim(3), weights.dim(0));
-		dim3 blockDim = getBlockDim(weights.dim(2), weights.dim(3), weights.dim(0));
-		update_kernel<<<gridDim, blockDim>>>(weights, bias, learning_rate,
-				gradient_weights, gradient_bias);
-	}
-
+	dim3 gridDim = getGridDim(weights.dim(2), weights.dim(3), weights.dim(0));
+	dim3 blockDim = getBlockDim(weights.dim(2), weights.dim(3), weights.dim(0));
+	update_kernel<<<gridDim, blockDim>>>(weights, bias, learning_rate,
+			gradient_weights, gradient_bias);
 }
 

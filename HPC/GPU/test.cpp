@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "./GPUConv.h"
+#include "./GPUOptimizer.h"
 
 int main() {
 	printf("Hello World!\n");
@@ -107,7 +108,7 @@ int main() {
 	next_error_tensor.dump(stdout, "Next Error Tensor");
 #endif
 
-
+#if 1
 	int batchSize = 1;
 	int inputChannels = 1;
 	int outputChannels = 1;
@@ -187,9 +188,12 @@ int main() {
 	error_tensor.dump4D(stdout, "Error Tensor");
 	error_tensor.moveToDevice();
 
+	convLayer.optimizer = new GPUSgd(0.001);
+
 	Tensor<float, 4> next_error_tensor = convLayer.backward(error_tensor);
 	next_error_tensor.moveToHost();
 	next_error_tensor.dump4D(stdout, "Next Error Tensor");
+#endif
 
 	return EXIT_SUCCESS;
 }
