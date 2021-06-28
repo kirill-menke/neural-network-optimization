@@ -10,18 +10,18 @@ class GPUConv {
 public:
 	GPUConv(
 		int inputChannels,
+		int outputChannels,
 		int imageWidth,
 		int imageHeight,
-		int outputChannels,
 		int filterWidth,
 		int filterHeight,
 		int strideX,
 		int strideY
 	):
 		inputChannels(inputChannels),
+		outputChannels(outputChannels),
 		imageWidth(imageWidth),
 		imageHeight(imageHeight),
-		outputChannels(outputChannels),
 		filterWidth(filterWidth),
 		filterHeight(filterHeight),
 		strideX(strideX),

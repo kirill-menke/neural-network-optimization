@@ -19,8 +19,28 @@ public:
 		for (int i = 0; i < Rank; i++, iter++)
 			this->dims[i] = *iter;
 
+		this->refcount = new int(1);
 		if ((mode & ON_CPU) != 0) allocCPU();
 		if ((mode & ON_GPU) != 0) allocGPU();
+	}
+
+	/*
+	 * This is a very shity version of
+	 * reshape and does NOT do as much as
+	 * numpy's reshape does. It works for us
+	 * here though.
+	 */
+	Tensor<Scalar, Rank> reshape(std::initializer_list<int> dims) {
+		Tensor<Scalar, Rank> tensor(0, dims);
+		delete tensor.refcount;
+		tensor.refcount = this->refcount;
+		(*tensor.refcount)++;
+		assert(dims.size() == Rank);
+		assert(this->num_elements() == tensor.num_elements());
+
+		tensor.data = this->data;
+		tensor.dev_data = this->dev_data;
+		return tensor;
 	}
 
 	void allocCPU() {
@@ -193,6 +213,7 @@ public:
 
 private:
 	int dims[Rank];
+	int *refcount;
 	Scalar *data = nullptr;
 	Scalar *dev_data = nullptr;
 };

@@ -200,7 +200,7 @@ Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 	int batchSize = error_tensor.dim(0);
 	int outputWidth = imageWidth / strideX, outputHeight = imageHeight / strideY;
-	assert(error_tensor.dim(1) == inputChannels);
+	assert(error_tensor.dim(1) == outputChannels);
 	assert(error_tensor.dim(2) == outputWidth);
 	assert(error_tensor.dim(3) == outputHeight);
 	assert(padded_input->dim(0) == batchSize);

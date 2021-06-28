@@ -6,6 +6,12 @@
 #include "Helper.h"
 #include <numeric>
 
+constexpr int MNISTLoader::IMAGE_NUM;
+constexpr int MNISTLoader::IMAGE_WIDTH;
+constexpr int MNISTLoader::IMAGE_HEIGHT;
+constexpr float MNISTLoader::mean;
+constexpr float MNISTLoader::std;
+
 void printTensor(Eigen::Tensor<float, 4> const &tensor) {
 	auto dim = tensor.dimensions();
 	for (int i = 0; i < dim[0]; i++) {

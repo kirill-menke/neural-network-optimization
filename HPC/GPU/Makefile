@@ -6,12 +6,12 @@
 #
 
 CUXX=nvcc
-CUFLAGS=-g -G -std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored # -I../../eigen-3.3.9/
+CUFLAGS=-g -G -std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored -I../../eigen-3.3.9/
 
 .PHONY: clean
 
 test: ./test.cpp ./GPUConv.cu ./GPUConv.h ./GPUMaxPool.cu ./GPUMaxPool.h ./GPUReLU.cu ./GPUReLU.h ./GPUOptimizer.cu ./GPUOptimizer.h ./Tensor.h
-	$(CUXX) $(CUFLAGS) -o $@ ./test.cpp ./GPUConv.cu ./GPUMaxPool.cu ./GPUReLU.cu ./GPUOptimizer.cu
+	$(CUXX) $(CUFLAGS) -o $@ ./test.cpp ./GPUConv.cu ./GPUMaxPool.cu ./GPUReLU.cu ./GPUOptimizer.cu ../SoftMax.cpp ../Loss.cpp ../Helper.cpp
 
 clean:
 	rm -rf ./test
