@@ -4,23 +4,24 @@
 // #include "unsupported/Eigen/CXX11/Tensor"
 
 #include "Tensor.h"
+#include "GPUOptimizer.h"
 
 class GPUConv {
 public:
 	GPUConv(
 		int inputChannels,
+		int outputChannels,
 		int imageWidth,
 		int imageHeight,
-		int outputChannels,
 		int filterWidth,
 		int filterHeight,
 		int strideX,
 		int strideY
 	):
 		inputChannels(inputChannels),
+		outputChannels(outputChannels),
 		imageWidth(imageWidth),
 		imageHeight(imageHeight),
-		outputChannels(outputChannels),
 		filterWidth(filterWidth),
 		filterHeight(filterHeight),
 		strideX(strideX),
@@ -41,6 +42,8 @@ public:
 	int strideY;
 	Tensor<float, 4> weights;
 	Tensor<float, 1> bias;
+
+	GPUSgd *optimizer = nullptr;
 
 private:
 	Tensor<float, 4> *padded_input = nullptr;

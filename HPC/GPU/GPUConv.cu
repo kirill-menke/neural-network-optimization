@@ -68,14 +68,12 @@ static void convolution(Tensor<float, 4> input, Tensor<float, 4> output, Tensor<
 	int b = threadIdx.z + blockIdx.z * blockDim.z;
 
 	int batchSize = input.dim(0), inputChannels = input.dim(1),
-	    width = input.dim(2), height = input.dim(3),
+	    outputWidth = output.dim(2), outputHeight = output.dim(3),
 	    outputChannels = output.dim(1);
 
 	int filterWidth = weights.dim(2), filterHeight = weights.dim(3);
 
-	int inputX = x * strideX;
-	int inputY = y * strideY;
-	if (b > batchSize || inputX >= input.dim(2) - filterWidth || inputY >= input.dim(3) - filterHeight)
+	if (b > batchSize || x >= outputWidth || y >= outputHeight)
 		return;
 
 	for (int cout = 0; cout < outputChannels; cout++) {
@@ -84,10 +82,11 @@ static void convolution(Tensor<float, 4> input, Tensor<float, 4> output, Tensor<
 		for (int cin = 0; cin < inputChannels; cin++) {
 			for (int i = 0; i < filterWidth; i++) {
 				for (int j = 0; j < filterHeight; j++) {
+					float inputVal = input(b, cin, x * strideX + i, y * strideY + j);
 					if (backward)
-						value += input(b, cin, inputX + i, inputY + j) * weights.flipped(cin, cout, i, j);
+						value += inputVal * weights.flipped(cin, cout, i, j);
 					else
-						value += input(b, cin, inputX + i, inputY + j) * weights(cout, cin, i, j);
+						value += inputVal * weights(cout, cin, i, j);
 				}
 			}
 		}
@@ -201,7 +200,7 @@ Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 	int batchSize = error_tensor.dim(0);
 	int outputWidth = imageWidth / strideX, outputHeight = imageHeight / strideY;
-	assert(error_tensor.dim(1) == inputChannels);
+	assert(error_tensor.dim(1) == outputChannels);
 	assert(error_tensor.dim(2) == outputWidth);
 	assert(error_tensor.dim(3) == outputHeight);
 	assert(padded_input->dim(0) == batchSize);
@@ -267,7 +266,9 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 		convBackwardGradientBias<<<gridDim, blockDim>>>(error_tensor, gradient_bias);
 	}
 
-	// TODO: Pass gradient_weights/bias on to Optimizer or something like that!
+	if (this->optimizer != nullptr)
+		this->optimizer->update(weights, bias, gradient_weights, gradient_bias);
+
 	gradient_weights.destroy();
 	gradient_bias.destroy();
 
