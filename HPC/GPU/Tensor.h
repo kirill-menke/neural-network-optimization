@@ -10,18 +10,47 @@
 template<typename Scalar, size_t Rank>
 class Tensor {
 public:
-	static constexpr int ON_CPU = 1;
-	static constexpr int ON_GPU = 2;
-
-	Tensor(int mode, std::initializer_list<int> dims) {
+	/*
+	 * This class copies by reference! It does NOT behave like other
+	 * C++ containers or Eigen::Tensor. It does reference counting internally,
+	 * so explicitly calling `destroy` is not needed.
+	 *
+	 * There is currently no way of doing a "deep copy".
+	 */
+	Tensor(std::initializer_list<int> dims, bool do_allocs = true) {
 		assert(dims.size() == Rank);
 		auto iter = dims.begin();
 		for (int i = 0; i < Rank; i++, iter++)
 			this->dims[i] = *iter;
 
-		this->refcount = new int(1);
-		if ((mode & ON_CPU) != 0) allocCPU();
-		if ((mode & ON_GPU) != 0) allocGPU();
+		if (do_allocs) {
+			this->refcount = new int(1);
+			this->data = (Scalar *)calloc(this->num_elements(), sizeof(Scalar));
+			cudaErrchk(cudaMalloc(
+				(void **)&this->dev_data,
+				this->num_elements() * sizeof(Scalar)));
+		}
+	}
+
+	Tensor<Scalar, Rank> &operator=(const Tensor<Scalar, Rank> &other) = delete;
+
+	Tensor(const Tensor<Scalar, Rank> &other):
+		refcount(other.refcount),
+		data(other.get_data()),
+		dev_data(other.get_dev_data()) {
+
+		for (int i = 0; i < Rank; i++)
+			this->dims[i] = other.dim(i);
+
+		(*refcount)++;
+	}
+
+	~Tensor() {
+		if (--(*this->refcount) == 0) {
+			delete this->refcount;
+			free(this->data);
+			cudaErrchk(cudaFree(this->dev_data));
+		}
 	}
 
 	/*
@@ -31,47 +60,24 @@ public:
 	 * here though.
 	 */
 	Tensor<Scalar, Rank> reshape(std::initializer_list<int> dims) {
-		Tensor<Scalar, Rank> tensor(0, dims);
-		delete tensor.refcount;
-		tensor.refcount = this->refcount;
-		(*tensor.refcount)++;
 		assert(dims.size() == Rank);
-		assert(this->num_elements() == tensor.num_elements());
-
+		Tensor<Scalar, Rank> tensor(dims, false);
+		tensor.refcount = this->refcount;
 		tensor.data = this->data;
 		tensor.dev_data = this->dev_data;
+		(*tensor.refcount)++;
+		assert(this->num_elements() == tensor.num_elements());
 		return tensor;
 	}
 
-	void allocCPU() {
-		if (this->data == nullptr)
-			this->data = (Scalar *)calloc(this->num_elements(), sizeof(Scalar));
-	}
-
-	void allocGPU() {
-		if (this->dev_data == nullptr)
-			cudaErrchk(cudaMalloc(
-				(void **)&this->dev_data,
-				this->num_elements() * sizeof(Scalar)));
-	}
-
 	void moveToDevice() {
-		allocGPU();
 		cudaErrchk(cudaMemcpy(this->dev_data, this->data,
 			this->num_elements() * sizeof(Scalar), cudaMemcpyHostToDevice));
 	}
 
 	void moveToHost() {
-		allocCPU();
 		cudaErrchk(cudaMemcpy(this->data, this->dev_data,
 			this->num_elements() * sizeof(Scalar), cudaMemcpyDeviceToHost));
-	}
-
-	void destroy() {
-		if (this->data != nullptr) ::free(this->data);
-		if (this->dev_data != nullptr) cudaErrchk(cudaFree(this->dev_data));
-		this->data = nullptr;
-		this->dev_data = nullptr;
 	}
 
 	void dump4D(FILE *f, const char* msg = "") {
@@ -198,8 +204,8 @@ public:
 		#endif
 	}
 
-	Scalar *get_data() { return this->data; }
-	Scalar *get_dev_data() { return this->dev_data; }
+	Scalar *get_data() const { return this->data; }
+	Scalar *get_dev_data() const { return this->dev_data; }
 	void set_data(Scalar *data) { this->data = data; }
 	void set_dev_data(Scalar *dev_data) { this->dev_data = dev_data; }
 

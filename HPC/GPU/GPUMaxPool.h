@@ -24,7 +24,7 @@ public:
 		input_height(input_height),
 		stride(stride),
 		pool_size(pool_size),
-		maximas(Tensor<uint8_t, 5>::ON_GPU, { batch_size, channels, outputWidth(), outputHeight(), 2 }) {
+		maximas({ batch_size, channels, outputWidth(), outputHeight(), 2 }) {
 		assert(stride >= pool_size && "overlapping pools is not supported");
 	}
 

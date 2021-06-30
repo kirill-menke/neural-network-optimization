@@ -163,12 +163,12 @@ Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 	assert(input_tensor.dim(2) == imageWidth);
 	assert(input_tensor.dim(3) == imageHeight);
 
-	this->padded_input = new Tensor<float, 4>(Tensor<float, 4>::ON_GPU, {
-		batchSize,
-		inputChannels,
-		imageWidth + 2 * (filterWidth / 2),
-		imageHeight + 2 * (filterHeight / 2)
-	});
+	if (this->padded_input == nullptr)
+		this->padded_input = new Tensor<float, 4>({
+			batchSize, inputChannels,
+			imageWidth + 2 * (filterWidth / 2),
+			imageHeight + 2 * (filterHeight / 2)
+		});
 
 	{
 		dim3 gridDim = getGridDim(padded_input->dim(2), padded_input->dim(3), batchSize);
@@ -178,7 +178,7 @@ Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 
 	int outputWidth = imageWidth / strideX, outputHeight = imageHeight / strideY;
 
-	Tensor<float, 4> output_tensor(Tensor<float, 4>::ON_GPU, {
+	Tensor<float, 4> output_tensor({
 		batchSize,
 		outputChannels,
 		outputWidth,
@@ -205,7 +205,7 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 	assert(error_tensor.dim(3) == outputHeight);
 	assert(padded_input->dim(0) == batchSize);
 
-	Tensor<float, 4> upsampled_error_tensor(Tensor<float, 4>::ON_GPU, {
+	Tensor<float, 4> upsampled_error_tensor({
 		batchSize,
 		outputChannels,
 		imageWidth,
@@ -218,7 +218,7 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 		upsample<<<gridDim, blockDim>>>(error_tensor, upsampled_error_tensor, strideX, strideY);
 	}
 
-	Tensor<float, 4> padded_error_tensor(Tensor<float, 4>::ON_GPU, {
+	Tensor<float, 4> padded_error_tensor({
 		batchSize,
 		outputChannels,
 		imageWidth + 2 * (filterWidth / 2),
@@ -232,7 +232,7 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 	}
 
 
-	Tensor<float, 4> next_error_tensor(Tensor<float, 4>::ON_GPU, {
+	Tensor<float, 4> next_error_tensor({
 		batchSize,
 		inputChannels,
 		imageWidth,
@@ -245,7 +245,7 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 		convolution<true><<<gridDim, blockDim>>>(padded_error_tensor, next_error_tensor, weights, bias, 1, 1);
 	}
 
-	Tensor<float, 4> gradient_weights(Tensor<float, 4>::ON_GPU, {
+	Tensor<float, 4> gradient_weights({
 		outputChannels,
 		inputChannels,
 		filterWidth,
@@ -258,7 +258,7 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 		convBackwardGradientWeights<<<gridDim, blockDim>>>(upsampled_error_tensor, *padded_input, gradient_weights, strideX, strideY);
 	}
 
-	Tensor<float, 1> gradient_bias(Tensor<float, 1>::ON_GPU, { outputChannels });
+	Tensor<float, 1> gradient_bias({ outputChannels });
 
 	{
 		dim3 gridDim = getGridDim(outputChannels, 1, 1);
@@ -269,14 +269,5 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 	if (this->optimizer != nullptr)
 		this->optimizer->update(weights, bias, gradient_weights, gradient_bias);
 
-	gradient_weights.destroy();
-	gradient_bias.destroy();
-
-	padded_error_tensor.destroy();
-	upsampled_error_tensor.destroy();
-
-	this->padded_input->destroy();
-	delete this->padded_input;
-	this->padded_input = nullptr;
 	return next_error_tensor;
 }

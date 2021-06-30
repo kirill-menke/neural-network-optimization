@@ -70,7 +70,7 @@ Tensor<float, 4> GPUMaxPool::forward(Tensor<float, 4> &input_tensor) {
 		&& input_tensor.dim(2) == input_width && input_tensor.dim(3) == input_height);
 	int output_width = this->outputWidth(), output_height = this->outputHeight();
 
-	Tensor<float, 4> output_tensor(Tensor<float, 4>::ON_GPU, {
+	Tensor<float, 4> output_tensor({
 			batch_size, channels, output_width, output_height });
 
 	dim3 gridDim = getGridDim(output_width, output_height, batch_size);
@@ -86,7 +86,7 @@ Tensor<float, 4> GPUMaxPool::backward(Tensor<float, 4> &error_tensor) {
 	assert(error_tensor.dim(0) == batch_size && error_tensor.dim(1) == channels
 		&& error_tensor.dim(2) == output_width && error_tensor.dim(3) == output_height);
 
-	Tensor<float, 4> next_error(Tensor<float, 4>::ON_GPU, {
+	Tensor<float, 4> next_error({
 			batch_size, channels, input_width, input_height });
 	next_error.setZero(true);
 

@@ -36,7 +36,7 @@ static void backwardKernel(Tensor<float, 4> error, Tensor<float, 4> output, Tens
 }
 
 Tensor<float, 4> GPUReLU::forward(Tensor<float, 4> &input) {
-	this->output_tensor = new Tensor<float, 4>(Tensor<float, 4>::ON_GPU, {
+	this->output_tensor = new Tensor<float, 4>({
 		input.dim(0), input.dim(1), input.dim(2), input.dim(3) });
 
 	dim3 gridDim = getGridDim(input.dim(2), input.dim(3), input.dim(0));
@@ -47,7 +47,7 @@ Tensor<float, 4> GPUReLU::forward(Tensor<float, 4> &input) {
 }
 
 Tensor<float, 4> GPUReLU::backward(Tensor<float, 4> &error) {
-	Tensor<float, 4> next_error(Tensor<float, 4>::ON_GPU, {
+	Tensor<float, 4> next_error({
 		error.dim(0), error.dim(1), error.dim(2), error.dim(3) });
 
 	dim3 gridDim = getGridDim(error.dim(2), error.dim(3), error.dim(0));

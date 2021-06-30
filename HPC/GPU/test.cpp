@@ -49,7 +49,7 @@ std::shared_ptr<Eigen::Tensor<float, 4>> toEigenTensor(Tensor<float, 4> tensor) 
 }
 
 Tensor<float, 4> fromEigenTensor(Eigen::Tensor<float, 4> &eigenTensor) {
-	Tensor<float, 4> tensor(Tensor<float, 4>::ON_CPU, {
+	Tensor<float, 4> tensor({
 		int(eigenTensor.dimension(0)),
 		int(eigenTensor.dimension(1)),
 		int(eigenTensor.dimension(2)),
@@ -98,8 +98,6 @@ int main() {
 	std::uniform_real_distribution<float> unif(-0.01, 0.01);
 
 	conv1.optimizer = new GPUSgd(learning_rate);
-	conv1.weights.allocCPU();
-	conv1.bias.allocCPU();
 	for (int f = 0; f < 1; f++) {
 		for (int c = 0; c < 8; c++)
 			for (int x = 0; x < 3; x++)
@@ -111,8 +109,6 @@ int main() {
 	conv1.bias.moveToDevice();
 
 	conv2.optimizer = new GPUSgd(learning_rate);
-	conv2.weights.allocCPU();
-	conv2.bias.allocCPU();
 	for (int f = 0; f < 8; f++) {
 		for (int c = 0; c < 16; c++)
 			for (int x = 0; x < 3; x++)
@@ -124,8 +120,6 @@ int main() {
 	conv2.bias.moveToDevice();
 
 	conv3.optimizer = new GPUSgd(learning_rate);
-	conv3.weights.allocCPU();
-	conv3.bias.allocCPU();
 	for (int f = 0; f < 10; f++) {
 		for (int c = 0; c < 16*7*7; c++)
 			conv3.weights(f, c, 0, 0) = unif(rng);

@@ -26,8 +26,8 @@ public:
 		filterHeight(filterHeight),
 		strideX(strideX),
 		strideY(strideY),
-		weights(Tensor<float, 4>::ON_GPU, { outputChannels, inputChannels, filterWidth, filterHeight }),
-		bias(Tensor<float, 1>::ON_GPU, { outputChannels }) {}
+		weights({ outputChannels, inputChannels, filterWidth, filterHeight }),
+		bias({ outputChannels }) {}
 
 	virtual Tensor<float, 4> forward(Tensor<float, 4> &input_tensor);
 	virtual Tensor<float, 4> backward(Tensor<float, 4> &error_tensor);
