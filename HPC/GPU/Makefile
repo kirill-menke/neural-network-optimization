@@ -6,7 +6,8 @@
 #
 
 CUXX=nvcc
-CUFLAGS=-g -G -std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored -I../../eigen-3.3.9/
+# CUFLAGS=-g -G -O2 -std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored -I../../eigen-3.3.9/
+CUFLAGS=-std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored -I../../eigen-3.3.9/ -O3
 
 .PHONY: clean
 
