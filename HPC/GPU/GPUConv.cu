@@ -98,63 +98,50 @@ static void convolution(Tensor<float, 4> input, Tensor<float, 4> output, Tensor<
 	}
 }
 
-/*
- * Calculate gradient_weights:
- *
- * Call this kernel per filter pixel X/Y and batch (TODO: Could also include filter here for perf.)
- * TODO: Can this be represented as a wired convolution as well?
- */
 __global__
-void convBackwardGradientWeights(Tensor<float, 4> error_tensor, Tensor<float, 4> input_tensor, Tensor<float, 4> gradient_weights, int strideX, int strideY) {
+void backwardGradients(Tensor<float, 4> error_tensor, Tensor<float, 4> upsampled_error_tensor,
+		Tensor<float, 4> input_tensor,
+		Tensor<float, 4> gradient_weights, Tensor<float, 1> gradient_bias, int strideX, int strideY) {
+
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int j = threadIdx.y + blockIdx.y * blockDim.y;
-	int b = threadIdx.z + blockIdx.z * blockDim.z;
+	int f = threadIdx.z + blockIdx.z * blockDim.z;
 
-	int filterWidth = gradient_weights.dim(2), filterHeight = gradient_weights.dim(3);
-	int batchSize = input_tensor.dim(0);
-	if (i >= filterWidth || j >= filterHeight || b >= batchSize)
+	int filterWidth = gradient_weights.dim(2), filterHeight = gradient_weights.dim(3), numFilters = gradient_weights.dim(0);
+	if (i >= filterWidth || j >= filterHeight || f >= numFilters)
 		return;
 
-	int imageWidth = error_tensor.dim(2), imageHeight = error_tensor.dim(3);
-	int inputChannels = input_tensor.dim(1), outputChannels = error_tensor.dim(1);
-	for (int f = 0; f < outputChannels; f++) {
-		for (int c = 0; c < inputChannels; c++) {
-			float err = 0.0;
+	int batchSize = input_tensor.dim(0), inputChannels = input_tensor.dim(1),
+	    outputWidth = error_tensor.dim(2), outputHeight = error_tensor.dim(3);
 
-			for (int x = 0; x < imageWidth; x += strideX) {
-				for (int y = 0; y < imageHeight; y += strideY) {
-					err += input_tensor(b, c, x + i, y + j) * error_tensor(b, f, x, y);
-				}
-			}
+	int w = upsampled_error_tensor.dim(2),
+	    h = upsampled_error_tensor.dim(3);
 
-			gradient_weights(f, c, i, j) = err;
-		}
+	// Calc weights:
+	for (int c = 0; c < inputChannels; c++) {
+		float err = 0.;
+
+		for (int b = 0; b < batchSize; b++)
+			for (int x = 0; x < w; x += strideX)
+				for (int y = 0; y < h; y += strideY)
+					err += input_tensor(b, c, x + i, y + j) * upsampled_error_tensor(b, f, x, y);
+
+		gradient_weights(f, c, i, j) = err;
 	}
-}
 
-/*
- * TODO: Do some sort of parallel reduction instead?
- */
-__global__
-void convBackwardGradientBias(Tensor<float, 4> error_tensor, Tensor<float, 1> gradient_bias) {
-	int f = threadIdx.x + blockIdx.x * blockDim.x;
-	if (f >= gradient_bias.dim(0))
+	// Calc bias:
+	if (i != 0 || j != 0)
 		return;
 
-	int batchSize = error_tensor.dim(0),
-	    width = error_tensor.dim(2),
-	    height = error_tensor.dim(3);
+	float err = 0.;
+	for (int b = 0; b < batchSize; b++)
+		for (int x = 0; x < outputWidth; x++)
+			for (int y = 0; y < outputHeight; y++)
+				err += error_tensor(b, f, x, y);
 
-	float value = 0.;
-	for (int b = 0; b < batchSize; b++) {
-		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < height; y++) {
-				value += error_tensor(b, f, x, y);
-			}
-		}
-	}
-	gradient_bias(f) = value;
+	gradient_bias(f) = err;
 }
+
 
 Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 	int batchSize = input_tensor.dim(0);
@@ -205,6 +192,10 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 	assert(error_tensor.dim(3) == outputHeight);
 	assert(padded_input->dim(0) == batchSize);
 
+#if 1
+	assert(strideX == 1 && strideY == 1);
+	Tensor<float, 4> upsampled_error_tensor(error_tensor);
+#else
 	Tensor<float, 4> upsampled_error_tensor({
 		batchSize,
 		outputChannels,
@@ -217,10 +208,10 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 		dim3 blockDim = getBlockDim(imageWidth, imageHeight, batchSize);
 		upsample<<<gridDim, blockDim>>>(error_tensor, upsampled_error_tensor, strideX, strideY);
 	}
+#endif
 
 	Tensor<float, 4> padded_error_tensor({
-		batchSize,
-		outputChannels,
+		batchSize, outputChannels,
 		imageWidth + 2 * (filterWidth / 2),
 		imageHeight + 2 * (filterHeight / 2)
 	});
@@ -233,10 +224,8 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 
 
 	Tensor<float, 4> next_error_tensor({
-		batchSize,
-		inputChannels,
-		imageWidth,
-		imageHeight
+		batchSize, inputChannels,
+		imageWidth, imageHeight
 	});
 
 	{
@@ -246,24 +235,16 @@ Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
 	}
 
 	Tensor<float, 4> gradient_weights({
-		outputChannels,
-		inputChannels,
-		filterWidth,
-		filterHeight
-	});
-
-	{
-		dim3 gridDim = getGridDim(filterWidth, filterHeight, batchSize);
-		dim3 blockDim = getBlockDim(filterWidth, filterHeight, batchSize);
-		convBackwardGradientWeights<<<gridDim, blockDim>>>(upsampled_error_tensor, *padded_input, gradient_weights, strideX, strideY);
-	}
+		outputChannels, inputChannels,
+		filterWidth, filterHeight });
 
 	Tensor<float, 1> gradient_bias({ outputChannels });
 
 	{
-		dim3 gridDim = getGridDim(outputChannels, 1, 1);
-		dim3 blockDim = getBlockDim(outputChannels, 1, 1);
-		convBackwardGradientBias<<<gridDim, blockDim>>>(error_tensor, gradient_bias);
+		dim3 gridDim = getGridDim(filterWidth, filterHeight, outputChannels);
+		dim3 blockDim = getBlockDim(filterWidth, filterHeight, outputChannels);
+		backwardGradients<<<gridDim, blockDim>>>(error_tensor, upsampled_error_tensor,
+				*padded_input, gradient_weights, gradient_bias, strideX, strideY);
 	}
 
 	if (this->optimizer != nullptr)
