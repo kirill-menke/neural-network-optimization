@@ -11,8 +11,8 @@ CUFLAGS=-std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defa
 
 .PHONY: clean
 
-test: ./test.cpp ./GPUConv.cu ./GPUConv.h ./GPUMaxPool.cu ./GPUMaxPool.h ./GPUReLU.cu ./GPUReLU.h ./GPUOptimizer.cu ./GPUOptimizer.h ./Tensor.h
-	$(CUXX) $(CUFLAGS) -o $@ ./test.cpp ./GPUConv.cu ./GPUMaxPool.cu ./GPUReLU.cu ./GPUOptimizer.cu ../SoftMax.cpp ../Loss.cpp ../Helper.cpp
+test: ./test.cpp ./GPUConv.cu ./GPUConv.h ./GPUMaxPool.cu ./GPUMaxPool.h ./GPUReLU.cu ./GPUReLU.h ./GPUSoftMax.cu ./GPUSoftMax.h ./GPUOptimizer.cu ./GPUOptimizer.h ./Tensor.h
+	$(CUXX) $(CUFLAGS) -o $@ ./test.cpp ./GPUConv.cu ./GPUMaxPool.cu ./GPUReLU.cu ./GPUOptimizer.cu ./GPUSoftMax.cu ../SoftMax.cpp ../Loss.cpp ../Helper.cpp
 
 clean:
 	rm -rf ./test
