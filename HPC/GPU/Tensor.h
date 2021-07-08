@@ -135,7 +135,7 @@ public:
 
 	__host__ __device__
 	Scalar& operator() (int i, int j, int k, int l, int m) {
-		static_assert(Rank == 5);
+		static_assert(Rank == 5, "Wrong rank");
 		int idx =
 			i * this->dims[1] * this->dims[2] * this->dims[3] * this->dims[4] +
 			j * this->dims[2] * this->dims[3] * this->dims[4] +
@@ -151,7 +151,7 @@ public:
 
 	__host__ __device__
 	Scalar& operator() (int i, int j, int k, int l) {
-		static_assert(Rank == 4);
+		static_assert(Rank == 4, "Wrong rank");
 		int idx =
 			i * this->dims[1] * this->dims[2] * this->dims[3] +
 			j * this->dims[2] * this->dims[3] +
@@ -166,7 +166,7 @@ public:
 
 	__host__ __device__
 	Scalar& operator() (int i, int j) {
-		static_assert(Rank == 2);
+		static_assert(Rank == 2, "Wrong rank");
 		int idx =
 			i * this->dims[1] +
 			j;
@@ -179,7 +179,7 @@ public:
 
 	__host__ __device__
 	Scalar& operator() (int i) {
-		static_assert(Rank == 1);
+		static_assert(Rank == 1, "Wrong rank");
 		#ifdef  __CUDA_ARCH__
 		return this->dev_data[i];
 		#else
@@ -189,7 +189,7 @@ public:
 
 	__host__ __device__
 	Scalar& flipped(int f, int c, int x, int y) {
-		static_assert(Rank == 4);
+		static_assert(Rank == 4, "Wrong rank");
 		x = this->dims[2] - x - 1;
 		y = this->dims[3] - y - 1;
 		int idx =

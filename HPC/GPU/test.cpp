@@ -6,6 +6,8 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 
 #include "./GPUConv.h"
+#include "./GPUUpsample.h"
+#include "./GPUTransConv.h"
 #include "./GPUReLU.h"
 #include "./GPUMaxPool.h"
 #include "./GPUOptimizer.h"
@@ -13,6 +15,8 @@
 #include "../SoftMax.h"
 #include "../Loss.h"
 #include "../Helper.h"
+
+
 
 
 class FlattenRank {
@@ -70,12 +74,12 @@ Tensor<float, 4> fromEigenTensor(Eigen::Tensor<float, 4> &eigenTensor) {
 }
 
 int main() {
-#if 1
+#if 0
 	int iterations = 1000;
 	int batchSize = 10;
 	float learning_rate = 0.01;
 
-	MNISTLoader mnist("../../data/mnist-train.txt");
+	MNISTLoader mnist("../data/mnist-train.txt");
 
 	printf("Data loaded...\n");
 
@@ -210,7 +214,68 @@ int main() {
 	auto reLuRes2 = reLu.backward(t2);
 	reLuRes2.moveToHost();
 	reLuRes2.dump4D(stdout, "reLuRes (backward)");
+
 #endif
+#if 0
+	/* Transposed Convolution: Simple test */
+
+	Tensor<float, 4> t1({ 1, 1, 4, 4 });
+	for (int x = 0; x < 4; x++)
+		for (int y = 0; y < 4; y++)
+			t1(0, 0, x, y) = 5;
+
+	t1.dump4D(stdout, "t1");
+	t1.moveToDevice();
+
+
+	GPUTransConv trans_conv(1, 1, 4, 4, 2, 2, 2, 2);
+	trans_conv.optimizer = new GPUSgd(0.01);
+	for (int f = 0; f < 1; f++) {
+		for (int c = 0; c < 1; c++)
+			for (int x = 0; x < 3; x++)
+				for (int y = 0; y < 3; y++)
+					trans_conv.weights(f, c, x, y) = 1.;
+		trans_conv.bias(f) = 0.;
+	}
+	trans_conv.weights.moveToDevice();
+	trans_conv.bias.moveToDevice();
+
+
+	auto trans_conv_res = trans_conv.forward(t1);
+	trans_conv_res.moveToHost();
+	trans_conv_res.dump4D(stdout, "trans_conv res (forward)");
+	trans_conv_res.moveToDevice();
+
+	auto trans_conv_res2 = trans_conv.backward(trans_conv_res);
+	trans_conv_res2.moveToHost();
+	trans_conv_res2.dump4D(stdout, "trans_conv res (backward)");
+
+#endif
+#if 1 
+	/* Nearest neighbor upsampling: Simple test */
+	std::mt19937_64 rng(0);
+	std::uniform_real_distribution<float> unif(-0.01, 0.01);
+
+	Tensor<float, 4> t1({ 1, 1, 4, 4 });
+	for (int x = 0; x < 4; x++)
+		for (int y = 0; y < 4; y++)
+			t1(0, 0, x, y) = unif(rng);
+
+	t1.dump4D(stdout, "t1");
+	t1.moveToDevice();
+
+	GPUUpsample upsample_layer(4, 4, 2, 2);
+	auto t2 = upsample_layer.forward(t1);
+	t2.moveToHost();
+	t2.dump4D(stdout, "forward result");
+	t2.moveToDevice();
+
+	auto t3 = upsample_layer.backward(t2);
+	t3.moveToHost();
+	t3.dump4D(stdout, "backward result");
+
+#endif
+
 	return EXIT_SUCCESS;
 }
 
