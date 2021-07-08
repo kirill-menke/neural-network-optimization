@@ -4,6 +4,7 @@
 #include <cuda.h>
 #include <assert.h>
 #include <initializer_list>
+#include <utility>
 
 #include "cuda-utils.h"
 
@@ -223,4 +224,19 @@ private:
 	Scalar *data = nullptr;
 	Scalar *dev_data = nullptr;
 };
+
+/*
+ * Only the GPU data is copied, memory
+ * allocated on the CPU is ignored!
+ */
+Tensor<float, 4> mergeAtChannelDim(Tensor<float, 4> &a, Tensor<float, 4> &b);
+
+/*
+ * Only the GPU data is copied, memory
+ * allocated on the CPU is ignored!
+ *
+ * The channel at index @param channel is the first
+ * channel dimension to end up in the second tensor.
+ */
+std::pair<Tensor<float, 4>, Tensor<float, 4>> splitAtChannelDim(Tensor<float, 4> &tensor, int channel);
 
