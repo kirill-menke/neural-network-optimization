@@ -6,13 +6,13 @@
 #
 
 CUXX=nvcc
-# CUFLAGS=-g -G -O2 -std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored -I../../eigen-3.3.9/
+# CUFLAGS=-g -G -std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored -I../../eigen-3.3.9/
 CUFLAGS=-std=c++14 --expt-relaxed-constexpr -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored -I../../eigen-3.3.9/ -O3
 
 .PHONY: clean
 
-test: ./test.cpp ./GPUConv.cu ./GPUConv.h ./GPUMaxPool.cu ./GPUMaxPool.h ./GPUReLU.cu ./GPUReLU.h ./GPUSoftMax.cu ./GPUSoftMax.h ./GPUOptimizer.cu ./Tensor.cu ./GPUOptimizer.h ./Tensor.h
-	$(CUXX) $(CUFLAGS) -o $@ ./test.cpp ./GPUConv.cu ./GPUMaxPool.cu ./GPUReLU.cu ./GPUOptimizer.cu ./GPUSoftMax.cu ./Tensor.cu ../SoftMax.cpp ../Loss.cpp ../Helper.cpp
+test: ./test.cpp ./GPUConv.cu ./GPUConv.h ./GPUMaxPool.cu ./GPUMaxPool.h ./GPUReLU.cu ./GPUReLU.h ./GPUSoftMax.cu ./GPUSoftMax.h ./GPUOptimizer.cu ./Tensor.cu ./GPUOptimizer.h ./Tensor.h ./utils.h ./utils.cpp
+	$(CUXX) $(CUFLAGS) -o $@ ./test.cpp ./GPUConv.cu ./GPUMaxPool.cu ./GPUReLU.cu ./GPUOptimizer.cu ./GPUSoftMax.cu ./Tensor.cu ../SoftMax.cpp ../Loss.cpp ../Helper.cpp ./utils.cpp
 
 clean:
 	rm -rf ./test
