@@ -13,12 +13,12 @@ static inline void cudaErrCheck(cudaError_t code, const char file[], int line) {
 }
 
 static inline dim3 getBlockDim(int w, int h, int n) {
-	dim3 blockDim(16, 16, 1);
+	dim3 blockDim(64, 64, 1);
 	return blockDim;
 }
 
 static inline dim3 getGridDim(int w, int h, int n) {
-	dim3 gridDim((w + 16 - 1) / 16, (h + 16 - 1) / 16, n);
+	dim3 gridDim((w + 64 - 1) / 64, (h + 64 - 1) / 64, n);
 	return gridDim;
 }
 

@@ -17,8 +17,8 @@ public:
 	static constexpr int IMAGE_WIDTH = 28;
 	static constexpr int IMAGE_HEIGHT = 28;
 
-	static constexpr float mean = 33.40891;
-	static constexpr float std = 78.67774;
+	static constexpr float mean = 33.40891f;
+	static constexpr float std = 78.67774f;
 
 	MNISTLoader(const char *filepath):
 		file(filepath), rand_gen(0) {}

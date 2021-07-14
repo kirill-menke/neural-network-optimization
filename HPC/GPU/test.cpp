@@ -10,12 +10,14 @@
 #include "./GPUReLU.h"
 #include "./GPUMaxPool.h"
 #include "./GPUOptimizer.h"
+#include "./GPULoss.h"
 #include "./utils.h"
 
 #include "../SoftMax.h"
 #include "../Loss.h"
 #include "../Helper.h"
 
+#include "./Tensor.h"
 
 
 
@@ -34,11 +36,11 @@ public:
 	}
 };
 
-int main() {
+int __main() {
 #if 0
 	int iterations = 1000;
 	int batchSize = 10;
-	float learning_rate = 0.01;
+	float learning_rate = 0.01f;
 
 	MNISTLoader mnist("../data/mnist-train.txt");
 
@@ -187,7 +189,7 @@ int main() {
 	trans_conv_res2.dump4D(stdout, "trans_conv res (backward)");
 
 #endif
-#if 1 
+#if 1
 	/* Nearest neighbor upsampling: Simple test */
 	std::mt19937_64 rng(0);
 	std::uniform_real_distribution<float> unif(-0.01, 0.01);

@@ -9,24 +9,23 @@ CrossEntropyLoss::forward(
 {
     this->input_tensor = input_tensor;
 
-    const float EPSILON = 1e-9;
+    const float EPSILON = 1e-9f;
     auto dims = label_tensor->dimensions();
 	int batcheSize = dims[0], features = dims[1];
 
     float loss = 0.;
     for (int b = 0; b < batcheSize; b++) {
-        int maxIdx = 0;
-        float max = 0; /* Ich glaub hier kann man 0 nehmen weil alle Werte nur von 0 bis 1? */
+        int idx = 0;
         for (int f = 0; f < features; f++) {
             float val = (*label_tensor)(b, f);
-            if (val > max) {
-                max = val;
-                maxIdx = f;
+            if (val == 1.0) {
+                idx = f;
+                break;
             }
         }
 
-        max = (*input_tensor)(b, maxIdx);
-        loss += -log(max + EPSILON);
+        float pred = (*input_tensor)(b, idx);
+        loss += -log(pred + EPSILON);
     }
 
     return loss;

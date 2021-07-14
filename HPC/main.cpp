@@ -70,7 +70,7 @@ float calculateAccuracy(std::shared_ptr<Eigen::Tensor<float, 2>> truth, std::sha
 int main() {
 	int iterations = 10000;
 	int batchSize = 16;
-	float learning_rate = 0.01;
+	float learning_rate = 0.01f;
 
 	MNISTLoader loader("../data/mnist-train.txt");
 	loader.loadFullDataset(0.1, true);

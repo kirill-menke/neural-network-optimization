@@ -33,7 +33,16 @@ public:
 		}
 	}
 
-	Tensor<Scalar, Rank> &operator=(const Tensor<Scalar, Rank> &other) = delete;
+	Tensor<Scalar, Rank>& operator=(const Tensor<Scalar, Rank>& other) {
+		refcount = other.refcount;
+		data = other.get_data();
+		dev_data = other.get_dev_data();
+
+		for (int i = 0; i < Rank; i++)
+			this->dims[i] = other.dim(i);
+
+		(*refcount)++;
+	}
 
 	Tensor(const Tensor<Scalar, Rank> &other):
 		refcount(other.refcount),
@@ -158,6 +167,20 @@ public:
 			j * this->dims[2] * this->dims[3] +
 			k * this->dims[3] +
 			l;
+		#ifdef  __CUDA_ARCH__
+		return this->dev_data[idx];
+		#else
+		return this->data[idx];
+		#endif
+	}
+
+	__host__ __device__
+		Scalar& operator() (int i, int j, int k) {
+		static_assert(Rank == 3, "Wrong rank");
+		int idx =
+			i * this->dims[1] * this->dims[2] +
+			j * this->dims[2] +
+			k;
 		#ifdef  __CUDA_ARCH__
 		return this->dev_data[idx];
 		#else
