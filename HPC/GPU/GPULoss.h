@@ -10,9 +10,8 @@ public:
 	/* The label_tensor should be one-hot-encoded! */
 	Tensor<float, 2> forward(Tensor<float, 4>& pred, Tensor<float, 3>& target);
 
-	Tensor<float, 4> backward(Tensor<float, 3>& target);
+	Tensor<float, 4> backward(Tensor<float, 4>& pred, Tensor<float, 3>& target);
 
 private:
 	int imageWidth, imageHeight;
-	Tensor<float, 4>* input_tensor = nullptr;
 };

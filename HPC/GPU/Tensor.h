@@ -34,6 +34,10 @@ public:
 	}
 
 	Tensor<Scalar, Rank>& operator=(const Tensor<Scalar, Rank>& other) {
+
+		// TODO: Ggf eigene Daten freigeben etc.
+		assert(false);
+
 		refcount = other.refcount;
 		data = other.get_data();
 		dev_data = other.get_dev_data();
@@ -112,6 +116,21 @@ public:
 		}
 	}
 	
+	void dump2D(FILE *f, const char* msg = "") {
+		fprintf(f, "Tensor<%lld>[", Rank);
+		for (int i = 0; i < Rank; i++)
+			fprintf(f, i == Rank - 1 ? "%d" : "%d, ", this->dims[i]);
+		fprintf(f, "]: %s\n", msg);
+
+		for (int y = 0; y < this->dims[1]; y++) {
+			for (int x = 0; x < this->dims[0]; x++) {
+				fprintf(f, "\t%f", (*this)(x, y));
+			}
+			fprintf(f, "\n");
+		}
+		fprintf(f, "\n");
+	}
+
 	void dump(FILE *f, const char* msg = "") {
 		fprintf(f, "Tensor<%lld>[", Rank);
 		for (int i = 0; i < Rank; i++)
@@ -262,4 +281,11 @@ Tensor<float, 4> mergeAtChannelDim(Tensor<float, 4> &a, Tensor<float, 4> &b);
  * channel dimension to end up in the second tensor.
  */
 std::pair<Tensor<float, 4>, Tensor<float, 4>> splitAtChannelDim(Tensor<float, 4> &tensor, int channel);
+
+/*
+ *
+ */
+Tensor<float, 4> operator+(Tensor<float, 4> &a, Tensor<float, 4> &b);
+
+
 

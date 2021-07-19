@@ -52,7 +52,7 @@ static void backwardKernel(Tensor<float, 4> error, Tensor<float, 4> output, Tens
 		next_error(b, c, x, y) = output(b, c, x, y) * (error(b, c, x, y) - sum);
 }
 
-Tensor<float, 4> GPUSoftMax::forward(Tensor<float, 4> &input) {
+Tensor<float, 4> GPUSoftMax::forward(const Tensor<float, 4> &input) {
 	this->output_tensor = new Tensor<float, 4>({
 		input.dim(0), input.dim(1), input.dim(2), input.dim(3) });
 
@@ -63,7 +63,7 @@ Tensor<float, 4> GPUSoftMax::forward(Tensor<float, 4> &input) {
 	return *output_tensor;
 }
 
-Tensor<float, 4> GPUSoftMax::backward(Tensor<float, 4> &error) {
+Tensor<float, 4> GPUSoftMax::backward(const Tensor<float, 4> &error) {
 	Tensor<float, 4> next_error({
 		error.dim(0), error.dim(1), error.dim(2), error.dim(3) });
 
@@ -71,6 +71,7 @@ Tensor<float, 4> GPUSoftMax::backward(Tensor<float, 4> &error) {
 	dim3 blockDim = getBlockDim(error.dim(2), error.dim(3), error.dim(0));
 
 	backwardKernel<<<gridDim, blockDim>>>(error, *(this->output_tensor), next_error);
+	delete this->output_tensor;
 	return next_error;
 }
 

@@ -30,7 +30,7 @@ public:
 	 * The second return value is the labels for each pixel
 	 * with hot-1-encoding. There are two classes (Membrane or not Membrane).
 	 */
-	std::pair<Tensor<float, 4>, Tensor<float, 4>> loadBatch(int batchSize);
+	std::pair<Tensor<float, 4>, Tensor<float, 3>> loadBatch(int batchSize);
 
 private:
 	const char *dirPath;

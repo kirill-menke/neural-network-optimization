@@ -6,7 +6,7 @@
 
 
 
-Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
+Tensor<float, 4> GPUConv::forward(const Tensor<float, 4> &input_tensor) {
 	int batchSize = input_tensor.dim(0);
 
 	assert(input_tensor.dim(1) == inputChannels);
@@ -47,7 +47,7 @@ Tensor<float, 4> GPUConv::forward(Tensor<float, 4> &input_tensor) {
 /*
  * Opt./Simplify for stride = 1?
  */
-Tensor<float, 4> GPUConv::backward(Tensor<float, 4> &error_tensor) {
+Tensor<float, 4> GPUConv::backward(const Tensor<float, 4> &error_tensor) {
 	int batchSize = error_tensor.dim(0);
 	int outputWidth = imageWidth / strideX, outputHeight = imageHeight / strideY;
 	assert(error_tensor.dim(1) == outputChannels);

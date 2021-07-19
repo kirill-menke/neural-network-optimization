@@ -66,3 +66,35 @@ std::pair<Tensor<float, 4>, Tensor<float, 4>> splitAtChannelDim(Tensor<float, 4>
 	return std::pair<Tensor<float, 4>, Tensor<float, 4>>(t0, t1);
 }
 
+
+__global__
+static void addTensorsKernel(Tensor<float, 4> res, Tensor<float, 4> t1, Tensor<float, 4> t2) {
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int b = threadIdx.z + blockIdx.z * blockDim.z;
+
+	int batchSize = res.dim(0), channels = res.dim(1),
+	    width = res.dim(2), height = res.dim(3);
+
+	if (x >= width || y >= height || b >= batchSize)
+		return;
+
+	for (int c = 0; c < channels; c++)
+		res(b, c, x, y) = t1(b, c, x, y) + t2(b, c, x, y);
+}
+
+Tensor<float, 4> operator+(Tensor<float, 4> &a, Tensor<float, 4> &b) {
+	assert(a.dim(0) == b.dim(0));
+	assert(a.dim(1) == b.dim(1));
+	assert(a.dim(2) == b.dim(2));
+	assert(a.dim(3) == b.dim(3));
+
+	Tensor<float, 4> res({ a.dim(0), a.dim(1), a.dim(2), a.dim(3) });
+
+	dim3 gridDim = getGridDim(a.dim(2), a.dim(3), a.dim(0));
+	dim3 blockDim = getBlockDim(a.dim(2), a.dim(3), a.dim(0));
+	addTensorsKernel<<<gridDim, blockDim>>>(res, a, b);
+
+	return res;
+}
+

@@ -50,10 +50,10 @@ Tensor<float, 4> fromEigenTensor(Eigen::Tensor<float, 4> &eigenTensor) {
 	return tensor;
 }
 
-std::pair<Tensor<float, 4>, Tensor<float, 4>>
+std::pair<Tensor<float, 4>, Tensor<float, 3>>
 MembraneLoader::loadBatch(int batchSize) {
 	Tensor<float, 4> images({ batchSize, 1, IMAGE_WIDTH, IMAGE_HEIGHT });
-	Tensor<float, 4> labels({ batchSize, 2, IMAGE_WIDTH, IMAGE_HEIGHT });
+	Tensor<float, 3> labels({ batchSize, IMAGE_WIDTH, IMAGE_HEIGHT });
 
 	for (int b = 0; b < batchSize; b++) {
 		this->image = (this->image + 1) % NUM_IMAGES;
@@ -71,8 +71,7 @@ MembraneLoader::loadBatch(int batchSize) {
 				images(b, 0, x, y) = pixel;
 
 				label_file >> pixel;
-				labels(b, 0, x, y) = 1. - pixel;
-				labels(b, 1, x, y) = pixel;
+				labels(b, x, y) = pixel;
 			}
 		}
 	}
@@ -82,7 +81,7 @@ MembraneLoader::loadBatch(int batchSize) {
 	return { images, labels };
 }
 
-static std::mt19937_64 rng(0);
+static std::mt19937_64 rng(42);
 
 void uniformRandomInit(float min, float max,
 		Tensor<float, 4> &weights, Tensor<float, 1> &bias) {

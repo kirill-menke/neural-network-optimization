@@ -17,11 +17,14 @@ static void update_kernel(Tensor<float, 4> weights, Tensor<float, 1> bias, float
 	for (int c = 0; c < input_channels; c++)
 		weights(f, c, x, y) -= learning_rate * gradient_weights(f, c, x, y);
 
-	bias(f) -= learning_rate * gradient_bias(f);
+	if (x == 0 && y == 0)
+		bias(f) -= learning_rate * gradient_bias(f);
 }
 
 void GPUSgd::update(Tensor<float, 4> weights, Tensor<float, 1> bias,
 		Tensor<float, 4> gradient_weights, Tensor<float, 1> gradient_bias) {
+
+	assert(weights.dim(0) == bias.dim(0));
 
 	dim3 gridDim = getGridDim(weights.dim(2), weights.dim(3), weights.dim(0));
 	dim3 blockDim = getBlockDim(weights.dim(2), weights.dim(3), weights.dim(0));
