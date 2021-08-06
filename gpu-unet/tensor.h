@@ -11,7 +11,7 @@
  * Wenn 1, dann wird via `assert()`
  * geprueft ob Zugriff gültig.
  */
-#define TENSOR_DIMCHECK 1
+#define TENSOR_DIMCHECK 0
 
 #define cudaErrchk(code) cudaErrCheck((code), __FILE__, __LINE__)
 static inline void cudaErrCheck(cudaError_t code, const char file[], int line) {
@@ -54,16 +54,17 @@ public:
 	 *
 	 * There is currently no way of doing a "deep copy".
 	 */
-	Tensor(std::initializer_list<int> dims, bool do_host_alloc = true) {
+	Tensor(std::initializer_list<int> dims, bool do_allocs = true) {
 		assert(dims.size() == Rank);
 		auto iter = dims.begin();
 		for (size_t i = 0; i < Rank; i++, iter++)
 			this->dims[i] = *iter;
 
-		this->refcount = new int(1);
-		this->dev_data = (Scalar *)alloc_gpu_memory(this->num_elements() * sizeof(Scalar));
-		if (do_host_alloc)
+		if (do_allocs) {
+			this->refcount = new int(1);
+			this->dev_data = (Scalar *)alloc_gpu_memory(this->num_elements() * sizeof(Scalar));
 			this->data = (Scalar *)malloc(this->num_elements() * sizeof(Scalar));
+		}
 	}
 
 	Tensor(int batch_size, int channels, int width, int height):
@@ -75,8 +76,51 @@ public:
 	Tensor(int n):
 		Tensor({ n }) {}
 
+#if 1
 	Tensor<Scalar, Rank>& operator=(const Tensor<Scalar, Rank>& other) = delete;
+#else
+	Tensor<Scalar, Rank>& operator=(const Tensor<Scalar, Rank>& other) {
+		assert(get_data() != other.get_data() && get_dev_data() != other.get_dev_data());
+		if (--(*refcount) == 0) {
+			delete this->refcount;
+			free(this->data);
+			free_gpu_memory(this->dev_data, this->num_elements() * sizeof(Scalar));
+		}
 
+		this->refcount = other.refcount;
+		this->data = other.get_data();
+		this->dev_data = other.get_dev_data();
+		for (size_t i = 0; i < Rank; i++)
+			this->dims[i] = other.dim(i);
+
+		(*refcount)++;
+		return *this;
+	}
+#endif
+
+	template<size_t NewRank>
+	Tensor<Scalar, NewRank> reshape(std::initializer_list<int> new_dims) const {
+		size_t n = 1;
+		for (auto iter = new_dims.begin(); iter != new_dims.end(); iter++)
+			n *= *iter;
+
+		assert(new_dims.size() == NewRank && n == this->num_elements());
+
+		Tensor<Scalar, NewRank> reshaped(new_dims, false);
+		reshaped.refcount = refcount;
+		reshaped.data = get_data();
+		reshaped.dev_data = get_dev_data();
+		(*refcount)++;
+		return reshaped;
+	}
+
+	/*
+	 * Das ist nur eine shallow copy, d.h.
+	 * es werden KEINE Daten kopiert. Der neue
+	 * Tensor zeigt intern auf genau die selben Daten wie vorher,
+	 * verändert man die einen Daten ändern sie die beim via Copy-
+	 * Constructor kopierten auch!
+	 */
 	Tensor(const Tensor<Scalar, Rank> &other):
 		dev_data(other.get_dev_data()),
 		data(other.get_data()),
@@ -173,6 +217,25 @@ public:
 		assert(0 <= i && i < int(Rank));
 #endif
 		return this->dims[i];
+	}
+
+	__host__ __device__
+	Scalar& operator() (int i, int j, int k, int l, int m, int n) {
+		static_assert(Rank == 6, "Wrong rank");
+#if TENSOR_DIMCHECK
+		assert(0 <= i && i < dims[0]);
+		assert(0 <= j && j < dims[1]);
+		assert(0 <= k && k < dims[2]);
+		assert(0 <= l && l < dims[3]);
+		assert(0 <= m && m < dims[4]);
+		assert(0 <= n && n < dims[5]);
+#endif
+		int idx = n + dims[5] * (m + dims[4] * (l + dims[3] * (k + dims[2] * (j + dims[1] * (i)))));
+		#ifdef  __CUDA_ARCH__
+		return this->dev_data[idx];
+		#else
+		return this->data[idx];
+		#endif
 	}
 
 	__host__ __device__
@@ -298,8 +361,16 @@ public:
 	}
 
 private:
-	Scalar *dev_data = nullptr;
-	Scalar *data = nullptr;
+	/*
+	 * Achtung: Die eigentlichen Regeln für das verwenden
+	 * des `restrict` qualifiers erfüllen wir NICHT, weil
+	 * es ja mehrere Tensoren geben kann die die selben Pointer auf
+	 * die Daten beinhalten. Man sollte aber nie einem Cuda-Kernel oder
+	 * einer Methode 2x Tensoren übergeben müssen die auf das selbe zeigen,
+	 * deshalb sollte das bei uns keine Probleme machen.
+	 */
+	Scalar * __restrict__ dev_data = nullptr;
+	Scalar * __restrict__ data = nullptr;
 	int *refcount;
 	int dims[Rank];
 };

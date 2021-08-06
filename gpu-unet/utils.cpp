@@ -43,14 +43,14 @@ void writeToFile(const std::string &filename, const Tensor<float, 4> &weights, c
 		die(filename.c_str());
 
 	size_t n;
-	fprintf(f, "%d %d %d %d\n", output_channels, input_channels, filter_width, filter_height);
+	fprintf(f, "%d %d %d %d:", output_channels, input_channels, filter_width, filter_height);
 	n = fwrite((void *)weights.get_data(), sizeof(float), weights.num_elements(), f);
 	if (n != weights.num_elements())
-		die(("fwrite weights: " + filename + " n=" + std::to_string(n)).c_str());
+		die(filename.c_str());
 
 	n = fwrite((void *)bias.get_data(), sizeof(float), bias.num_elements(), f);
 	if (n != bias.num_elements())
-		die(("fwrite bias: " + filename + " n=" + std::to_string(n)).c_str());
+		die(filename.c_str());
 
 	if (ferror(f))
 		die(filename.c_str());
@@ -66,7 +66,7 @@ void readFromFile(const std::string &filename, Tensor<float, 4> &weights, Tensor
 	if (f == NULL)
 		die(filename.c_str());
 
-	if (fscanf(f, "%d %d %d %d\n", &output_channels, &input_channels, &filter_width, &filter_height) != 4)
+	if (fscanf(f, "%d %d %d %d:", &output_channels, &input_channels, &filter_width, &filter_height) != 4)
 		die(filename.c_str());
 
 	assert(output_channels == weights.dim(0)
@@ -74,20 +74,22 @@ void readFromFile(const std::string &filename, Tensor<float, 4> &weights, Tensor
 		&& filter_width == weights.dim(2)
 		&& filter_height == weights.dim(3));
 
-	size_t n;
-	n = fread((void *)weights.get_data(), sizeof(float), weights.num_elements(), f);
-	if (n != weights.num_elements() || ferror(f))
-		die(("fread weights: " + filename + " n=" + std::to_string(n)).c_str());
+	size_t n,
+	       weights_elms = weights.num_elements(),
+	       bias_elms = bias.num_elements();
 
-	n = fread((void *)bias.get_data(), sizeof(float), bias.num_elements(), f);
-	if (n != bias.num_elements() || ferror(f))
-		die(("fread bias: " + filename + " n=" + std::to_string(n)).c_str());
+	n = fread((void *)weights.get_data(), sizeof(float), weights_elms, f);
+	if (n != weights_elms)
+		die(filename.c_str());
 
-	if (fclose(f) != 0)
+	n = fread((void *)bias.get_data(), sizeof(float), bias_elms, f);
+	if (n != bias_elms)
+		die(filename.c_str());
+
+	if (ferror(f) || fclose(f) != 0)
 		die(filename.c_str());
 
 	weights.moveToDevice();
 	bias.moveToDevice();
 }
-
 

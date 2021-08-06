@@ -8,9 +8,12 @@
 - *Adam*-Optimizer implementieren
 - *MaxPool*, *Upsample*: `pool_size` als Template-Parameter der Kernel für loop unrolling
 - *MaxPool*, *Upsample*: Höhere Threads pro Block um Speicherbandbreite besser auszunutzen? (Hardware-Abhaengig, Roofline abwarten)
+- *Upsample*: Je nach profling/roofline: wieder so machen wie Kirill es schon hatte: Thread pro Output-Pixel-Bild starten, nicht Input-Pixel.
 - *Conv*: `backward()`: Unabhängige Berechungen auf unterschiedlichen Streams parallel
 - *Conv*: `backward()`, Gradienten-Berechnung: Parallele Reduktion verbessern
-- *Conv* und *ReLU* in ein gemeinsames Layer
+- *Conv*: Shared Memory verwenden
+- 3x3/5x5-*Conv* und *ReLU* in ein gemeinsames Layer
+- 1x1-*Conv* und *SoftMax* in ein gemeinsames Layer
 - Vorschlag: *GoDown* und *GoUp*-Layer:
   - *GoDown*:
     - *forward*: wie `MaxPool::foward`
@@ -22,6 +25,25 @@
     - Man braucht gar kein `split` weil die Layer wissen welche Channels sie brauchen
     - `concat` und `Upsample::forward` in einem Kernel
     - Fehler-Addition und `MaxPool::backward` in einem Kernel
+- Was machen was Kirill schon hatte: Loss nur als 3D-Tensor, Klasse als Index
+- Im Optimizer der Update-Kernel ist blöd in Thread-Blöcke aufgeteilt.
+- Per WhatsApp besprochen:
+  - ResNet
+  - Inception-Blöcke aus dem GoogleNet
+  - Layer-Oberklasse
+  - Initialiser der CPU portieren
+  - Data-Augmentation
+  - Batch-Shuffle etc.
+  - Dropout-Layer
+  - Transposed Convolution
+  - Architekturen: Autoencoder, GANs, ...
+- CPU-C++-Version mit OpenMP parallelisieren
+- Autoencoder oder sowas wie Bild-zu-Bild-CNN
+  - Beispiel: MNIST Ziffern zu "scharfen" Ziffern
+  - Sowas wie Sanduhr-Architektur
+- Code-Organisation: GPU-Namespace, ...
+- Tensoren wiederverwenden um nicht immer wieder `malloc` aufrufen zu müssen
+- ...
 
 ## Fragen an Prof. Köstler zu GPU-Unet aus letztem Treffen
 

@@ -1,9 +1,13 @@
-
-CUXX=nvcc
-# CUFLAGS=-g -G --compiler-options -Wall --compiler-options -Wextra -std=c++14
-CUFLAGS=-g -O2 --use_fast_math --compiler-options -Wall --compiler-options -Wextra -std=c++14 --expt-relaxed-constexpr
+CUXX    = nvcc
+CUFLAGS = --compiler-options -Wall --compiler-options -Wextra -std=c++14 --expt-relaxed-constexpr
 
 .PHONY: clean all
+
+ifdef DEBUG_BUILD
+CUFLAGS += -g -G
+else
+CUFLAGS += -g -O3 --use_fast_math
+endif
 
 SRCFILES = $(shell find . -name '*.cpp' -or -name '*.cu')
 OBJFILES = $(patsubst %.cpp, %.o, $(patsubst %.cu, %.o, $(SRCFILES)))
@@ -15,6 +19,17 @@ all: test
 
 %.o: %.cu
 	$(CUXX) $(CUFLAGS) -o $@ -c $<
+
+./activations.o: ./activations.cu ./activations.h ./tensor.h
+./conv.o:        ./conv.cu        ./conv.h        ./tensor.h ./optimizer.h
+./data.o:        ./data.cpp       ./data.h        ./tensor.h
+./loss.o:        ./loss.cu        ./loss.h        ./tensor.h
+./optimizer.o:   ./optimizer.cu   ./optimizer.h   ./tensor.h
+./pooling.o:     ./pooling.cu     ./pooling.h     ./tensor.h
+./utils.o:       ./utils.cpp      ./utils.h       ./tensor.h
+./tensor.o:      ./tensor.cu      ./tensor.h
+
+./test.o: $(shell find . -name '*.h')
 
 test: $(OBJFILES)
 	@mkdir -p ./weights/unet
