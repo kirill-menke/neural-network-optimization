@@ -21,6 +21,21 @@ def img2text(images_dir, output_prefix, normalize):
                     print(f"\t{pixel:.5f}", file=f, end='')
                 print('', file=f)
 
-img2text('./train-images', 'train-', normalize=False)
-img2text('./train-labels', 'label-', normalize=False)
+
+def calculate_mean(images_dir):
+    images = []
+    for name in os.listdir(images_dir):
+        path = f"{images_dir}/{name}"
+        image = np.array(plt.imread(path))
+
+        images.append(image)
+
+    print("mean: ", np.mean(np.asarray(images)))
+    print("std: ", np.std(np.asarray(images)))
+
+
+img2text('./train-images-small', 'train-', normalize=False)
+img2text('./train-labels-small', 'label-', normalize=False)
+
+
 

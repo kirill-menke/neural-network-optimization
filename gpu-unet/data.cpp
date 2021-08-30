@@ -30,12 +30,17 @@ std::pair<Tensor<float, 4>, Tensor<float, 4>> MembraneLoader::loadBatch() {
 		std::ifstream label_file(std::string(dir)
 			+ "/label-" + std::to_string(image) + ".png.txt");
 
+		if (image_file.fail() || label_file.fail()) {
+			fprintf(stderr, "MembraneLoader: Failed to open image or label textfiles!\n");
+			exit(EXIT_FAILURE);
+		}
+
 		float pixel;
 		for (int y = 0; y < IMAGE_HEIGHT; y++) {
 			for (int x = 0; x < IMAGE_WIDTH; x++) {
 				image_file >> pixel;
 				assert(0. <= pixel && pixel <= 1.);
-				images(b, 0, x, y) = pixel - 0.5;
+				images(b, 0, x, y) = (pixel / 255 - MEAN / 255) / (STD/ 255);;
 
 				label_file >> pixel;
 				assert(pixel == 1. || pixel == 0.);

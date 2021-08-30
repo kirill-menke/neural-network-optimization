@@ -160,6 +160,13 @@ public:
 		cudaErrchk(cudaMemset(this->dev_data, 0, n * sizeof(Scalar)));
 	}
 
+
+	void setConstant(Scalar value) {
+		int n = this->num_elements();
+		cudaErrchk(cudaMemset(this->dev_data, value, n * sizeof(Scalar)));
+	}
+
+
 	void dump4D(FILE *f, const char* msg = "") const {
 		static_assert(Rank == 4, "Wrong rank");
 		fprintf(f, "Tensor<%lu>[", Rank);

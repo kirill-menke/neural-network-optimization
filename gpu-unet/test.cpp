@@ -8,7 +8,12 @@
 #include <cuda.h>
 
 extern "C" {
+#ifdef _LINUX
 	#include <unistd.h>
+#else
+	#include <io.h>
+	#define F_OK    0
+#endif
 }
 
 #include "./tensor.h"
@@ -420,59 +425,60 @@ static void bench_mnist(int iterations) {
 
 static void test_unet(int iterations) {
 	int batch_size = 2;
-	float learning_rate = 1e-7;
+	float learning_rate = 1e-3;
 
-	Conv conv_0_1(1, 16, 3);
+	Conv conv_0_1(1, 2, 3);
 	ReLU relu_0_1;
-	Conv conv_0_2(16, 32, 3);
+	Conv conv_0_2(2, 4, 3);
 	ReLU relu_0_2;
 	MaxPool pool_0(2);
 
-	Conv conv_1_1(32, 64, 3);
+	Conv conv_1_1(4, 8, 3);
 	ReLU relu_1_1;
 	MaxPool pool_1(2);
 
-	Conv conv_2_1(64, 128, 3);
+	Conv conv_2_1(8, 16, 3);
 	ReLU relu_2_1;
 	MaxPool pool_2(2);
 
-	Conv conv_3_1(128, 128, 3);
+	Conv conv_3_1(16, 16, 3);
 	ReLU relu_3_1;
-	Conv conv_3_2(128, 64, 3);
+	Conv conv_3_2(16, 8, 3);
 	ReLU relu_3_2;
 	Upsample upsample_3(2);
 
 	// concat(upsample_3, relu_2_1)
-	Conv conv_4_1(64 + 128, 64, 3);
+	Conv conv_4_1(8 + 16, 8, 3);
 	ReLU relu_4_1;
 	Upsample upsample_4(2);
 
 	// concat(upsample_4, relu_1_1)
-	Conv conv_5_1(64 + 64, 64, 3);
+	Conv conv_5_1(8 + 8, 8, 3);
 	ReLU relu_5_1;
 	Upsample upsample_5(2);
 
 	// concat(upsample_5, relu_0_1)
-	Conv conv_6_1(64 + 32, 32, 3);
+	Conv conv_6_1(8 + 4, 4, 3);
 	ReLU relu_6_1;
-	Conv conv_6_2(32, 2, 1);
+	Conv conv_6_2(4, 2, 1);
 	SoftMax softmax;
 
 	PerPixelCELoss loss;
 
-	conv_0_1.optimizer = new Sgd(learning_rate);
-	conv_0_2.optimizer = new Sgd(learning_rate);
-	conv_1_1.optimizer = new Sgd(learning_rate);
-	conv_2_1.optimizer = new Sgd(learning_rate);
-	conv_3_1.optimizer = new Sgd(learning_rate);
-	conv_3_2.optimizer = new Sgd(learning_rate);
-	conv_4_1.optimizer = new Sgd(learning_rate);
-	conv_5_1.optimizer = new Sgd(learning_rate);
-	conv_6_1.optimizer = new Sgd(learning_rate);
-	conv_6_2.optimizer = new Sgd(learning_rate);
+	conv_0_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{2, 1, 256, 256});
+	conv_0_2.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{4, 2, 256, 256});
+	conv_1_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{8, 4, 256, 256});
+	conv_2_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{16, 8, 256, 256});
+	conv_3_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{16, 16, 256, 256});
+	conv_3_2.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{8, 16, 256, 256});
+	conv_4_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{8, 8 + 16, 256, 256});
+	conv_5_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{8, 8 + 8, 256, 256});
+	conv_6_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{4, 8 + 4, 256, 256});
+	conv_6_2.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{2, 4, 256, 256});
 
-	if (access("./weights/unet/conv-0-1.weights", F_OK) != 0) {
-		float init = 0.1;
+
+	if (_access("./weights/unet/conv-0-1.weights", F_OK) != 0) {
+		float init = 0.5;
 		printf("Initializing weights from %f to %f...\n", -init, init);
 		uniformRandomInit(-init, init, conv_0_1.weights, conv_0_1.bias);
 		uniformRandomInit(-init, init, conv_0_2.weights, conv_0_2.bias);
@@ -499,11 +505,10 @@ static void test_unet(int iterations) {
 	}
 
 	MembraneLoader dataloader("../data/cell-membranes/", batch_size);
-	auto data = dataloader.loadBatch();
 
 	printf("Start iterations...\n");
 	for (int iter = 0; iter < iterations; iter++) {
-		// auto data = dataloader.loadBatch();
+		auto data = dataloader.loadBatch();
 
 		auto t0 = relu_0_2.forward(
 			conv_0_2.forward(

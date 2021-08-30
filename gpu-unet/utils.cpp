@@ -18,10 +18,31 @@ void uniformRandomInit(float min, float max,
 					weights(f, c, x, y) = unif(rng);
 
 	for (int f = 0; f < bias.dim(0); f++)
-		bias(f) = 0.; // unif(rng);
+		bias(f) = unif(rng);
 
 	weights.moveToDevice();
 	bias.moveToDevice();
+}
+
+void heInit(Tensor<float, 4>& weights, Tensor<float, 1>& bias) {
+	float std_weights = std::sqrtf(2 / static_cast<float>(weights.dim(1) * weights.dim(2) * weights.dim(3)));
+	float std_bias = std::sqrtf(2 / static_cast<float>(weights.dim(0)));
+	std::normal_distribution<float> distribution_weights(0.0, std_weights);
+	std::normal_distribution<float> distribution_bias(0.0, std_bias);
+
+	for (int i = 0; i < weights.dim(0); i++) {
+		for (int j = 0; j < weights.dim(1); j++) {
+			for (int x = 0; x < weights.dim(2); x++) {
+				for (int y = 0; y < weights.dim(3); y++) {
+					weights(i, j, x, y) = distribution_weights(rng);
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < bias.dim(0); i++) {
+		bias(i) = distribution_bias(rng);
+	}
 }
 
 static void die(const char msg[]) {
