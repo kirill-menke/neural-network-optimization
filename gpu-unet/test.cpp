@@ -8,17 +8,19 @@
 #include <cuda.h>
 
 extern "C" {
-#ifdef _LINUX
-	#include <unistd.h>
+#ifdef __linux__
+#include <unistd.h>
 #else
-	#include <io.h>
-	#define F_OK    0
+#include <io.h>
+#define F_OK   0
+#define access _access
 #endif
 }
 
 #include "./tensor.h"
 #include "./activations.h"
 #include "./conv.h"
+#include "./conv-softmax.h"
 #include "./optimizer.h"
 #include "./loss.h"
 #include "./pooling.h"
@@ -77,8 +79,7 @@ static void bench_conv(int iterations) {
 	Conv conv1(1, 32, 3);
 	ReLU relu;
 
-	Conv conv2(32, 2, 3);
-	SoftMax softmax;
+	ConvSoftMax conv2(32, 2);
 
 	PerPixelCELoss loss;
 	conv1.optimizer = new Sgd(learing_rate);
@@ -105,13 +106,12 @@ static void bench_conv(int iterations) {
 		auto t2 = relu.forward(t1);
 
 		cudaErrchk(cudaEventRecord(start, 0));
-		auto t3 = conv2.forward(t2);
+		auto pred = conv2.forward(t2);
 		cudaErrchk(cudaEventRecord(stop, 0));
 		cudaErrchk(cudaEventSynchronize(stop));
 		cudaErrchk(cudaEventElapsedTime(&elapsed, start, stop));
 		elapsed_time_forward += elapsed;
 
-		auto pred = softmax.forward(t3);
 #if 0
 		delete conv1.padded_input;
 		delete relu.output_tensor;
@@ -124,10 +124,9 @@ static void bench_conv(int iterations) {
 		}
 
 		auto e1 = loss.backward(pred, data.second);
-		auto e2 = softmax.backward(e1);
 
 		cudaErrchk(cudaEventRecord(start, 0));
-		auto e3 = conv2.backward(e2);
+		auto e3 = conv2.backward(e1);
 		cudaErrchk(cudaEventRecord(stop, 0));
 		cudaErrchk(cudaEventSynchronize(stop));
 		cudaErrchk(cudaEventElapsedTime(&elapsed, start, stop));
@@ -477,7 +476,7 @@ static void test_unet(int iterations) {
 	conv_6_2.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{2, 4, 256, 256});
 
 
-	if (_access("./weights/unet/conv-0-1.weights", F_OK) != 0) {
+	if (access("./weights/unet/conv-0-1.weights", F_OK) != 0) {
 		float init = 0.5;
 		printf("Initializing weights from %f to %f...\n", -init, init);
 		uniformRandomInit(-init, init, conv_0_1.weights, conv_0_1.bias);

@@ -1,8 +1,19 @@
 #include <random>
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 
 #include "utils.h"
+
+#ifdef __linux__
+// See here: https://stackoverflow.com/a/43183942/5682784
+
+namespace std {
+	static inline float sqrtf(float x) {
+		return ::sqrt(x);
+	}
+}
+#endif
 
 static std::mt19937_64 rng(42);
 
