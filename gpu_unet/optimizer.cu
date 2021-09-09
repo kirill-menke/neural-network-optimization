@@ -3,7 +3,8 @@
 #include "./optimizer.h"
 
 __global__
-static void update_kernel_sgd(Tensor<float, 4> weights, Tensor<float, 1> bias, float learning_rate, Tensor<float, 4> gradient_weights, Tensor<float, 1> gradient_bias) {
+static void update_kernel_sgd(Tensor<float, 4> weights, Tensor<float, 1> bias, float learning_rate, 
+	Tensor<float, 4> gradient_weights, Tensor<float, 1> gradient_bias) {
 
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;

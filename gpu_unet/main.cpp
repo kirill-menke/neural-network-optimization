@@ -7,23 +7,25 @@
 #include <cmath>
 #include <cuda.h>
 
+#include "./conv-relu.h"
+#include "./conv-softmax.h"
+
 extern "C" {
-#ifdef __linux__
-#include <unistd.h>
+#ifdef _LINUX
+	#include <unistd.h>
 #else
-#include <io.h>
-#define F_OK   0
-#define access _access
+	#include <io.h>
+	#define F_OK    0
 #endif
 }
 
 #include "./tensor.h"
 #include "./activations.h"
 #include "./conv.h"
-#include "./conv-softmax.h"
 #include "./optimizer.h"
 #include "./loss.h"
 #include "./pooling.h"
+#include "./dropout.h"
 #include "./utils.h"
 #include "./data.h"
 
@@ -79,7 +81,8 @@ static void bench_conv(int iterations) {
 	Conv conv1(1, 32, 3);
 	ReLU relu;
 
-	ConvSoftMax conv2(32, 2);
+	Conv conv2(32, 2, 3);
+	SoftMax softmax;
 
 	PerPixelCELoss loss;
 	conv1.optimizer = new Sgd(learing_rate);
@@ -106,12 +109,13 @@ static void bench_conv(int iterations) {
 		auto t2 = relu.forward(t1);
 
 		cudaErrchk(cudaEventRecord(start, 0));
-		auto pred = conv2.forward(t2);
+		auto t3 = conv2.forward(t2);
 		cudaErrchk(cudaEventRecord(stop, 0));
 		cudaErrchk(cudaEventSynchronize(stop));
 		cudaErrchk(cudaEventElapsedTime(&elapsed, start, stop));
 		elapsed_time_forward += elapsed;
 
+		auto pred = softmax.forward(t3);
 #if 0
 		delete conv1.padded_input;
 		delete relu.output_tensor;
@@ -124,9 +128,10 @@ static void bench_conv(int iterations) {
 		}
 
 		auto e1 = loss.backward(pred, data.second);
+		auto e2 = softmax.backward(e1);
 
 		cudaErrchk(cudaEventRecord(start, 0));
-		auto e3 = conv2.backward(e1);
+		auto e3 = conv2.backward(e2);
 		cudaErrchk(cudaEventRecord(stop, 0));
 		cudaErrchk(cudaEventSynchronize(stop));
 		cudaErrchk(cudaEventElapsedTime(&elapsed, start, stop));
@@ -216,7 +221,7 @@ static void bench_mini_unet(int iterations) {
 	uniformRandomInit(-init, init, conv5.weights, conv5.bias);
 
 	auto data = dataloader.loadBatch();
-	// auto data = testInput(batch_size, image_size);
+
 	for (int iter = 0; iter < iterations; iter++) {
 		// auto data = dataloader.loadBatch();
 
@@ -425,58 +430,37 @@ static void bench_mnist(int iterations) {
 static void test_unet(int iterations) {
 	int batch_size = 2;
 	float learning_rate = 1e-3;
-
-	Conv conv_0_1(1, 2, 3);
-	ReLU relu_0_1;
-	Conv conv_0_2(2, 4, 3);
-	ReLU relu_0_2;
+	
+	ConvReLU conv_0_1(1, 2, 3);
+	ConvReLU conv_0_2(2, 4, 3);
 	MaxPool pool_0(2);
 
-	Conv conv_1_1(4, 8, 3);
-	ReLU relu_1_1;
+	ConvReLU conv_1_1(4, 8, 3);
 	MaxPool pool_1(2);
+	Dropout drop_0;
 
-	Conv conv_2_1(8, 16, 3);
-	ReLU relu_2_1;
+	ConvReLU conv_2_1(8, 16, 3);
 	MaxPool pool_2(2);
+	Dropout drop_1;
 
-	Conv conv_3_1(16, 16, 3);
-	ReLU relu_3_1;
-	Conv conv_3_2(16, 8, 3);
-	ReLU relu_3_2;
+	ConvReLU conv_3_1(16, 16, 3);
+	ConvReLU conv_3_2(16, 8, 3);
 	Upsample upsample_3(2);
 
-	// concat(upsample_3, relu_2_1)
-	Conv conv_4_1(8 + 16, 8, 3);
-	ReLU relu_4_1;
+	ConvReLU conv_4_1(8 + 16, 8, 3);
 	Upsample upsample_4(2);
 
-	// concat(upsample_4, relu_1_1)
-	Conv conv_5_1(8 + 8, 8, 3);
-	ReLU relu_5_1;
+	ConvReLU conv_5_1(8 + 8, 8, 3);
 	Upsample upsample_5(2);
 
-	// concat(upsample_5, relu_0_1)
-	Conv conv_6_1(8 + 4, 4, 3);
-	ReLU relu_6_1;
-	Conv conv_6_2(4, 2, 1);
-	SoftMax softmax;
+	ConvReLU conv_6_1(8 + 4, 4, 3);
+
+	ConvSoftMax conv_6_2(4, 2);
 
 	PerPixelCELoss loss;
 
-	conv_0_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{2, 1, 256, 256});
-	conv_0_2.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{4, 2, 256, 256});
-	conv_1_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{8, 4, 256, 256});
-	conv_2_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{16, 8, 256, 256});
-	conv_3_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{16, 16, 256, 256});
-	conv_3_2.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{8, 16, 256, 256});
-	conv_4_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{8, 8 + 16, 256, 256});
-	conv_5_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{8, 8 + 8, 256, 256});
-	conv_6_1.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{4, 8 + 4, 256, 256});
-	conv_6_2.optimizer = new Adam(learning_rate, 0.9, 0.999, std::tuple<int, int, int, int>{2, 4, 256, 256});
 
-
-	if (access("./weights/unet/conv-0-1.weights", F_OK) != 0) {
+	if (_access("./weights/unet/conv-0-1.weights", F_OK) != 0) {
 		float init = 0.5;
 		printf("Initializing weights from %f to %f...\n", -init, init);
 		uniformRandomInit(-init, init, conv_0_1.weights, conv_0_1.bias);
@@ -505,65 +489,66 @@ static void test_unet(int iterations) {
 
 	MembraneLoader dataloader("../data/cell-membranes/", batch_size);
 
-	printf("Start iterations...\n");
+	conv_0_1.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_0_1.output_channels, conv_0_1.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_0_2.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_0_2.output_channels, conv_0_2.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_1_1.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_1_1.output_channels, conv_1_1.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_2_1.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_2_1.output_channels, conv_2_1.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_3_1.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_3_1.output_channels, conv_3_1.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_3_2.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_3_2.output_channels, conv_3_2.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_4_1.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_4_1.output_channels, conv_4_1.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_5_1.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_5_1.output_channels, conv_5_1.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_6_1.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_6_1.output_channels, conv_6_1.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+	conv_6_2.optimizer = new Adam(learning_rate, 0.9, 0.999, 
+		std::make_tuple(conv_6_2.output_channels, conv_6_2.input_channels, dataloader.IMAGE_WIDTH, dataloader.IMAGE_HEIGHT));
+
+
 	for (int iter = 0; iter < iterations; iter++) {
 		auto data = dataloader.loadBatch();
 
-		auto t0 = relu_0_2.forward(
-			conv_0_2.forward(
-			relu_0_1.forward(
-			conv_0_1.forward(data.first))));
-		auto t1 = relu_1_1.forward(conv_1_1.forward(pool_0.forward(t0)));
-		auto t2 = relu_2_1.forward(conv_2_1.forward(pool_1.forward(t1)));
-		auto t3 = relu_3_2.forward(
-			conv_3_2.forward(
-			relu_3_1.forward(
-			conv_3_1.forward(pool_2.forward(t2)))));
+		/***			Forward				***/
+
+		auto t0 = conv_0_2.forward(conv_0_1.forward(data.first));
+		auto t1 = conv_1_1.forward(pool_0.forward(t0));
+		auto t2 = conv_2_1.forward(drop_0.forward(pool_1.forward(t1)));
+		auto t3 = conv_3_2.forward(conv_3_1.forward(drop_1.forward(pool_2.forward(t2))));
 		auto t4in = concat(upsample_3.forward(t3), t2);
-		auto t4 = relu_4_1.forward(conv_4_1.forward(t4in));
+		auto t4 = conv_4_1.forward(t4in);
 		auto t5in = concat(upsample_4.forward(t4), t1);
-		auto t5 = relu_5_1.forward(conv_5_1.forward(t5in));
+		auto t5 = conv_5_1.forward(t5in);
 		auto t6in = concat(upsample_5.forward(t5), t0);
-		auto pred = softmax.forward(
-			conv_6_2.forward(
-			relu_6_1.forward(
-			conv_6_1.forward(t6in))));
+		auto pred = conv_6_2.forward(conv_6_1.forward(t6in));
 
 		auto l = sum(loss.forward(pred, data.second));
+
+
+		/***			Backward			***/
+
+		auto e6 = conv_6_1.backward(conv_6_2.backward(loss.backward(pred, data.second)));
+		auto e6split = split(e6, t5.dim(1));
+		auto e5 = conv_5_1.backward(upsample_5.backward(e6split.first));
+		auto e5split = split(e5, t4.dim(1));
+		auto e4 = conv_4_1.backward(upsample_4.backward(e5split.first));
+		auto e4split = split(e4, t3.dim(1));
+		auto e3 = conv_3_1.backward(conv_3_2.backward(upsample_3.backward(e4split.first)));
+		auto e2 = conv_2_1.backward(pool_2.backward(drop_1.backward(e3)) + e4split.second);
+		auto e1 = conv_1_1.backward(pool_1.backward(drop_0.backward(e2)) + e5split.second);
+		auto e0 = conv_0_1.backward(conv_0_2.backward(pool_0.backward(e1) + e6split.second));
+
+
+		/***		Print Measures			***/
+
 		printf("iter. %d:\tloss=%f\n", iter, l);
 		if (iter % 10 == 0)
 			printf("iter. %d:\tcorrect_pixels=%.2f\n", iter, dataloader.checkAccuracy(pred, data.second));
-
-		auto e6 = conv_6_1.backward(
-			relu_6_1.backward(
-			conv_6_2.backward(
-			softmax.backward(
-			loss.backward(pred, data.second)))));
-		auto e6split = split(e6, t5.dim(1));
-		auto e5 = conv_5_1.backward(
-			relu_5_1.backward(
-			upsample_5.backward(e6split.first)));
-		auto e5split = split(e5, t4.dim(1));
-		auto e4 = conv_4_1.backward(
-			relu_4_1.backward(
-			upsample_4.backward(e5split.first)));
-		auto e4split = split(e4, t3.dim(1));
-		auto e3 = conv_3_1.backward(
-			relu_3_1.backward(
-			conv_3_2.backward(
-			relu_3_2.backward(
-			upsample_3.backward(e4split.first)))));
-		auto e2 = conv_2_1.backward(
-			relu_2_1.backward(
-			pool_2.backward(e3) + e4split.second));
-		auto e1 = conv_1_1.backward(
-			relu_1_1.backward(
-			pool_1.backward(e2) + e5split.second));
-		auto e0 = conv_0_1.backward(
-			relu_0_1.backward(
-			conv_0_2.backward(
-			relu_0_2.backward(
-			pool_0.backward(e1) + e6split.second))));
 	}
 
 	printf("Done! (Saving weights...)\n");

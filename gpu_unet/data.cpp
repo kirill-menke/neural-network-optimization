@@ -31,7 +31,7 @@ std::pair<Tensor<float, 4>, Tensor<float, 4>> MembraneLoader::loadBatch() {
 			+ "/label-" + std::to_string(image) + ".png.txt");
 
 		if (image_file.fail() || label_file.fail()) {
-			fprintf(stderr, "MembraneLoader: Failed to open image or label textfiles!\n");
+			fprintf(stderr, "MembraneLoader: Failed to open image/label textfiles!\n");
 			exit(EXIT_FAILURE);
 		}
 

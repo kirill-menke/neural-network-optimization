@@ -20,15 +20,14 @@ all: test
 %.o: %.cu
 	$(CUXX) $(CUFLAGS) -o $@ -c $<
 
-./activations.o:  ./activations.cu  ./activations.h  ./tensor.h
-./conv.o:         ./conv.cu         ./conv.h         ./tensor.h ./optimizer.h
-/conv-softmax.o: ./conv-softmax.cu ./conv-softmax.h ./tensor.h ./optimizer.h
-./data.o:         ./data.cpp        ./data.h         ./tensor.h
-./loss.o:         ./loss.cu         ./loss.h         ./tensor.h
-./optimizer.o:    ./optimizer.cu    ./optimizer.h    ./tensor.h
-./pooling.o:      ./pooling.cu      ./pooling.h      ./tensor.h
-./utils.o:        ./utils.cpp       ./utils.h        ./tensor.h
-./tensor.o:       ./tensor.cu       ./tensor.h
+./activations.o: ./activations.cu ./activations.h ./tensor.h
+./conv.o:        ./conv.cu        ./conv.h        ./tensor.h ./optimizer.h
+./data.o:        ./data.cpp       ./data.h        ./tensor.h
+./loss.o:        ./loss.cu        ./loss.h        ./tensor.h
+./optimizer.o:   ./optimizer.cu   ./optimizer.h   ./tensor.h
+./pooling.o:     ./pooling.cu     ./pooling.h     ./tensor.h
+./utils.o:       ./utils.cpp      ./utils.h       ./tensor.h
+./tensor.o:      ./tensor.cu      ./tensor.h
 
 ./test.o: $(shell find . -name '*.h')
 

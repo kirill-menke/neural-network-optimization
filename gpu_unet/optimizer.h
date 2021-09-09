@@ -43,7 +43,7 @@ public:
 };
 
 
-class Adam : public Optimizer{
+class Adam : public Optimizer {
 	float mu;
 	float rho;
 	int iter;
@@ -64,7 +64,9 @@ public:
 		r_bias.setZero();
 	}
 
-	void update(Tensor<float, 4> &weights, Tensor<float, 1> &bias,
-		Tensor<float, 4> &gradient_tensor, Tensor<float, 1> &gradient_bias);
+	void update(Tensor<float, 4>& weights, Tensor<float, 1>& bias,
+		Tensor<float, 4>& gradient_tensor, Tensor<float, 1>& gradient_bias);
 };
+
+
 

@@ -31,7 +31,7 @@ static inline void getGridSize(dim3 &gridDim, dim3 &blockDim, int channels, int 
 	gridDim.x = (height + blockDim.x - 1) / blockDim.x;
 	gridDim.y = (width  + blockDim.y - 1) / blockDim.y;
 	gridDim.z = channels;
-	// printf("blockDim(%d, %d, %d), gridDim(%d, %d, %d)\n",
+	//  printf("blockDim(%d, %d, %d), gridDim(%d, %d, %d)\n",
 	//	blockDim.x, blockDim.y, blockDim.z,
 	//	gridDim.x, gridDim.y, gridDim.z);
 }
@@ -121,7 +121,7 @@ public:
 	 * verändert man die einen Daten ändern sie die beim via Copy-
 	 * Constructor kopierten auch!
 	 */
-	Tensor(const Tensor<Scalar, Rank> &other):
+	Tensor(const Tensor<Scalar, Rank> &other) :
 		dev_data(other.get_dev_data()),
 		data(other.get_data()),
 		refcount(other.refcount) {
@@ -273,7 +273,7 @@ public:
 		assert(0 <= l && l < dims[3]);
 #endif
 		int idx = l + dims[3] * (k + dims[2] * (j + dims[1] * (i)));
-		#ifdef  __CUDA_ARCH__
+		#ifdef  __CUDA_ARCH__ 
 		return this->dev_data[idx];
 		#else
 		return this->data[idx];
