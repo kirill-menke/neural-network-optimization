@@ -1,5 +1,14 @@
 #include "initializer.h"
 
+#ifdef __linux__
+// See here: https://stackoverflow.com/a/43183942/5682784
+namespace std {
+	static inline float sqrtf(float x) {
+		return ::sqrt(x);
+	}
+}
+#else
+#endif
 
 void UniformRandom::initialize(Eigen::Tensor<float, 4>& weights, Eigen::Tensor<float, 1>& bias) {
 	// Initialize weights	 

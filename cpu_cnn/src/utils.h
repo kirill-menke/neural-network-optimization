@@ -1,7 +1,7 @@
 #pragma once
 
 #include <unsupported/Eigen/CXX11/Tensor>
-
+#include <memory>
 #include <fstream>
 
 

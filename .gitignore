@@ -1,8 +1,6 @@
 
-/main
-/test
-HPC/GPU/test
-*.o
+cpu_cnn/main
+cpu_cnn/src/*.o
 
 gpu_unet/weights/
 gpu_unet/*.o

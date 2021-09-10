@@ -7,12 +7,11 @@
 #include "maxpool.h"
 #include "flatten.h"
 #include "relu.h"
-#include "softMax.h"
+#include "softmax.h"
 #include "loss.h"
 #include "conv.h"
 #include "dropout.h"
 #include "utils.h"
-
 
 int main(int argc, const char* argv[]) {
 

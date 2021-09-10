@@ -1,5 +1,4 @@
-#include "SoftMax.h"
-
+#include "softmax.h"
 
 std::shared_ptr<Eigen::Tensor<float, 2>>
 SoftMax::forward(std::shared_ptr<Eigen::Tensor<float, 2> const> input_tensor)

@@ -1,5 +1,6 @@
 #pragma once
 #include <unsupported/Eigen/CXX11/Tensor>
+#include <memory>
 
 /* This class is used to flatten the spatial dimensions: (B, C, H, W) -> (B, C x H x W, 1, 1).
    The flattened tensor can then be used for a 1x1 convolution (equivalent to Fully-Connected layer) */
