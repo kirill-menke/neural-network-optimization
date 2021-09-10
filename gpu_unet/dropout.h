@@ -2,13 +2,13 @@
 #include <memory>
 #include <random>
 
-#include "Tensor.h"
+#include "tensor.h"
 
 
 class Dropout {
 
-	bool testing_phase;
 	float probability;
+	bool testing_phase;
 	std::shared_ptr<Tensor<float, 4>> mask;
 
 public:

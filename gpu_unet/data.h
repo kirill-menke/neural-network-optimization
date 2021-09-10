@@ -9,9 +9,17 @@
 
 class MembraneLoader {
 public:
+
+#if __linux__
+	static constexpr int NUM_IMAGES = 30;
+	static constexpr int IMAGE_WIDTH = 512;
+	static constexpr int IMAGE_HEIGHT = 512;
+#else
 	static constexpr int NUM_IMAGES = 60;
 	static constexpr int IMAGE_WIDTH = 256;
 	static constexpr int IMAGE_HEIGHT = 256;
+#endif
+
 	static constexpr float MEAN = 0.78030;
 	static constexpr float STD = 0.41403;
 

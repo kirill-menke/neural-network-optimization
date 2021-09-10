@@ -1,8 +1,19 @@
 #include <random>
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 
 #include "utils.h"
+
+#ifdef __linux__
+// See here: https://stackoverflow.com/a/43183942/5682784
+namespace std {
+	static inline float sqrtf(float x) {
+		return ::sqrt(x);
+	}
+}
+#else
+#endif
 
 static std::mt19937_64 rng(42);
 
@@ -59,8 +70,7 @@ void writeToFile(const std::string &filename, const Tensor<float, 4> &weights, c
 	weights.moveToHost();
 	bias.moveToHost();
 
-	FILE* f;
-	fopen_s(&f, filename.c_str(), "w");
+	FILE* f = fopen(filename.c_str(), "w");
 	if (f == NULL)
 		die(filename.c_str());
 
@@ -84,12 +94,11 @@ void readFromFile(const std::string &filename, Tensor<float, 4> &weights, Tensor
 	assert(bias.dim(0) == weights.dim(0));
 	int output_channels, input_channels, filter_width, filter_height;
 
-	FILE* f;
-	fopen_s(&f, filename.c_str(), "r");
+	FILE* f = fopen(filename.c_str(), "r");
 	if (f == NULL)
 		die(filename.c_str());
 
-	if (fscanf_s(f, "%d %d %d %d:", &output_channels, &input_channels, &filter_width, &filter_height) != 4)
+	if (fscanf(f, "%d %d %d %d:", &output_channels, &input_channels, &filter_width, &filter_height) != 4)
 		die(filename.c_str());
 
 	assert(output_channels == weights.dim(0)

@@ -7,15 +7,13 @@
 #include <cmath>
 #include <cuda.h>
 
-#include "./conv-relu.h"
-#include "./conv-softmax.h"
-
 extern "C" {
-#ifdef _LINUX
-	#include <unistd.h>
+#ifdef __linux__
+#include <unistd.h>
 #else
-	#include <io.h>
-	#define F_OK    0
+#include <io.h>
+#define F_OK    0
+#define access _access
 #endif
 }
 
@@ -28,6 +26,11 @@ extern "C" {
 #include "./dropout.h"
 #include "./utils.h"
 #include "./data.h"
+
+#include "./conv-relu.h"
+#include "./conv-softmax.h"
+#include "./unet-up.h"
+#include "./unet-down.h"
 
 static float sum(const Tensor<float, 2> &t) {
 	t.moveToHost();
@@ -48,18 +51,6 @@ static std::pair<Tensor<float, 4>, Tensor<float, 4>> testInput(int batch_size, i
 	for (int b = 0; b < batch_size; b++) {
 		for (int x = 0; x < image_size; x++) {
 			for (int y = 0; y < image_size; y++) {
-#if 0
-				bool t = x + y == image_size;
-				images(b, 0, x, y) = t ? 0. : 1.;
-				truths(b, 0, x, y) = t ? 1. : 0.;
-				truths(b, 1, x, y) = t ? 0. : 1.;
-#endif
-#if 0
-				bool t = rand() % 3 == 1;
-				images(b, 0, x, y) = t ? 0. : 1.;
-				truths(b, 0, x, y) = t ? 1. : 0.;
-				truths(b, 1, x, y) = t ? 0. : 1.;
-#endif
 				bool t = (rand() & 0b011) == 0;
 				images(b, 0, x, y) = t ? -0.5 : 0.5;
 				truths(b, 0, x, y) = t ? 1. : 0.;
@@ -78,11 +69,9 @@ static void bench_conv(int iterations) {
 	int batch_size = 5,
 	    image_size = 256;
 
-	Conv conv1(1, 32, 3);
-	ReLU relu;
+	ConvReLU conv1(1, 32, 3);
 
-	Conv conv2(32, 2, 3);
-	SoftMax softmax;
+	ConvSoftMax conv2(32, 2);
 
 	PerPixelCELoss loss;
 	conv1.optimizer = new Sgd(learing_rate);
@@ -106,46 +95,33 @@ static void bench_conv(int iterations) {
 		cudaErrchk(cudaEventElapsedTime(&elapsed, start, stop));
 		elapsed_time_forward += elapsed;
 
-		auto t2 = relu.forward(t1);
-
 		cudaErrchk(cudaEventRecord(start, 0));
-		auto t3 = conv2.forward(t2);
+		auto pred = conv2.forward(t1);
 		cudaErrchk(cudaEventRecord(stop, 0));
 		cudaErrchk(cudaEventSynchronize(stop));
 		cudaErrchk(cudaEventElapsedTime(&elapsed, start, stop));
 		elapsed_time_forward += elapsed;
 
-		auto pred = softmax.forward(t3);
-#if 0
-		delete conv1.padded_input;
-		delete relu.output_tensor;
-		delete conv2.padded_input;
-		delete softmax.output_tensor;
-#else
 		if (i % 10 == 0) {
 			auto l = loss.forward(pred, data.second);
 			printf("iter. %d:\tloss=%f\n", i, sum(l));
 		}
 
 		auto e1 = loss.backward(pred, data.second);
-		auto e2 = softmax.backward(e1);
 
 		cudaErrchk(cudaEventRecord(start, 0));
-		auto e3 = conv2.backward(e2);
+		auto e2 = conv2.backward(e1);
 		cudaErrchk(cudaEventRecord(stop, 0));
 		cudaErrchk(cudaEventSynchronize(stop));
 		cudaErrchk(cudaEventElapsedTime(&elapsed, start, stop));
 		elapsed_time_backward += elapsed;
 
-		auto e4 = relu.backward(e3);
-
 		cudaErrchk(cudaEventRecord(start, 0));
-		auto e5 = conv1.backward(e4);
+		auto e3 = conv1.backward(e2);
 		cudaErrchk(cudaEventRecord(stop, 0));
 		cudaErrchk(cudaEventSynchronize(stop));
 		cudaErrchk(cudaEventElapsedTime(&elapsed, start, stop));
 		elapsed_time_backward += elapsed;
-#endif
 	}
 
 	cudaErrchk(cudaEventDestroy(start));
@@ -160,14 +136,10 @@ static void bench_mini_unet(int iterations) {
 	      elapsed,
 	      elapsed_conv_forward = 0.,
 	      elapsed_conv_backward = 0.,
-	      elapsed_activations_forward = 0.,
-	      elapsed_activations_backward = 0.,
-	      elapsed_maxpool_forward = 0.,
-	      elapsed_maxpool_backward = 0.,
-	      elapsed_upsample_forward = 0.,
-	      elapsed_upsample_backward = 0.,
-	      elapsed_split = 0.,
-	      elapsed_concat = 0.;
+	      elapsed_down_forward = 0.,
+	      elapsed_down_backward = 0.,
+	      elapsed_up_forward = 0.,
+	      elapsed_up_backward = 0.;
 
 	MembraneLoader dataloader("../data/cell-membranes/", batch_size);
 
@@ -188,24 +160,19 @@ static void bench_mini_unet(int iterations) {
 		t += elapsed;
 	};
 
-	Conv conv1(1, 20, 3);
-	ReLU relu1;
-	MaxPool maxpool1(2);
+	ConvReLU conv1(1, 20, 3);
+	UnetDown down1(2);
 
-	Conv conv2(20, 40, 3);
-	ReLU relu2;
-	MaxPool maxpool2(2);
+	ConvReLU conv2(20, 40, 3);
+	UnetDown down2(2);
 
-	Conv conv3(40, 80, 3);
-	ReLU relu3;
-	Upsample upsample3(2);
+	ConvReLU conv3(40, 80, 3);
+	UnetUp up3(2, conv2.output_channels, conv3.output_channels);
 
-	Conv conv4(80 + 40, 80, 3);
-	ReLU relu4;
-	Upsample upsample4(2);
+	ConvReLU conv4(80 + 40, 80, 3);
+	UnetUp up4(2, conv1.output_channels, conv4.output_channels);
 
-	Conv conv5(80 + 20, 2, 3);
-	SoftMax softmax;
+	ConvSoftMax conv5(80 + 20, 2);
 
 	PerPixelCELoss loss;
 	float init = 0.01;
@@ -220,178 +187,111 @@ static void bench_mini_unet(int iterations) {
 	uniformRandomInit(-init, init, conv4.weights, conv4.bias);
 	uniformRandomInit(-init, init, conv5.weights, conv5.bias);
 
-	auto data = dataloader.loadBatch();
-
 	for (int iter = 0; iter < iterations; iter++) {
-		// auto data = dataloader.loadBatch();
+		auto data = dataloader.loadBatch();
 
 		time_start();
 		auto forward_conv1 = conv1.forward(data.first);
 		time_end(elapsed_conv_forward);
 		time_start();
-		auto forward_relu1 = relu1.forward(forward_conv1);
-		time_end(elapsed_activations_forward);
-		time_start();
-		auto forward_maxpool1 = maxpool1.forward(forward_relu1);
-		time_end(elapsed_maxpool_forward);
+		auto forward_down1 = down1.forward(forward_conv1);
+		time_end(elapsed_down_forward);
 
 		time_start();
-		auto forward_conv2 = conv2.forward(forward_maxpool1);
+		auto forward_conv2 = conv2.forward(forward_down1);
 		time_end(elapsed_conv_forward);
 		time_start();
-		auto forward_relu2 = relu2.forward(forward_conv2);
-		time_end(elapsed_activations_forward);
-		time_start();
-		auto forward_maxpool2 = maxpool2.forward(forward_relu2);
-		time_end(elapsed_maxpool_forward);
+		auto forward_down2 = down2.forward(forward_conv2);
+		time_end(elapsed_down_forward);
 
 		time_start();
-		auto forward_conv3 = conv3.forward(forward_maxpool2);
+		auto forward_conv3 = conv3.forward(forward_down2);
 		time_end(elapsed_conv_forward);
 		time_start();
-		auto forward_relu3 = relu3.forward(forward_conv3);
-		time_end(elapsed_activations_forward);
-		time_start();
-		auto forward_upsample3 = upsample3.forward(forward_relu3);
-		time_end(elapsed_upsample_forward);
+		auto forward_up3 = up3.forward(forward_conv2, forward_conv3);
+		time_end(elapsed_up_forward);
 
 		time_start();
-		auto forward_concat4 = concat(forward_upsample3, forward_relu2);
-		time_end(elapsed_concat);
-		time_start();
-		auto forward_conv4 = conv4.forward(forward_concat4);
+		auto forward_conv4 = conv4.forward(forward_up3);
 		time_end(elapsed_conv_forward);
 		time_start();
-		auto forward_relu4 = relu4.forward(forward_conv4);
-		time_end(elapsed_activations_forward);
-		time_start();
-		auto forward_upsample4 = upsample4.forward(forward_relu4);
-		time_end(elapsed_upsample_forward);
+		auto forward_up4 = up4.forward(forward_conv1, forward_conv4);
+		time_end(elapsed_up_forward);
 
 		time_start();
-		auto forward_concat5 = concat(forward_upsample4, forward_relu1);
-		time_end(elapsed_concat);
-		time_start();
-		auto forward_conv5 = conv5.forward(forward_concat5);
+		auto forward_conv5 = conv5.forward(forward_up4);
 		time_end(elapsed_conv_forward);
-		time_start();
-		auto forward_softmax = softmax.forward(forward_conv5);
-		time_end(elapsed_activations_forward);
 
-		if (iter < 6 || iter % 10 == 0) {
-			auto l = loss.forward(forward_softmax, data.second);
-			if (iter < 6 || iter % 50 == 0)
-				printf("iter. %d:\tloss=%f, correct_pixels=%f%%\n",
-					iter, sum(l), dataloader.checkAccuracy(forward_softmax, data.second));
-			else
-				printf("iter. %d:\tloss=%f\n", iter, sum(l));
+		if (iter % 10 == 0) {
+			auto l = loss.forward(forward_conv5, data.second);
+			printf("iter. %d:\tloss=%f\n", iter, sum(l));
 		}
 
-		auto backward_loss = loss.backward(forward_softmax, data.second);
+		auto backward_loss = loss.backward(forward_conv5, data.second);
 		time_start();
-		auto backward_softmax = softmax.backward(backward_loss);
-		time_end(elapsed_activations_backward);
-		time_start();
-		auto backward_conv5 = conv5.backward(backward_softmax);
-		time_end(elapsed_conv_backward);
-		time_start();
-		auto backward_split5 = split(backward_conv5, forward_upsample4.dim(1));
-		time_end(elapsed_split);
-
-		time_start();
-		auto backward_upsample4 = upsample4.backward(backward_split5.first);
-		time_end(elapsed_upsample_backward);
-		time_start();
-		auto backward_relu4 = relu4.backward(backward_upsample4);
-		time_end(elapsed_activations_backward);
-		time_start();
-		auto backward_conv4 = conv4.backward(backward_relu4);
-		time_end(elapsed_conv_backward);
-		time_start();
-		auto backward_split4 = split(backward_conv4, forward_upsample3.dim(1));
-		time_end(elapsed_split);
-
-		time_start();
-		auto backward_upsample3 = upsample3.backward(backward_split4.first);
-		time_end(elapsed_upsample_backward);
-		time_start();
-		auto backward_relu3 = relu3.backward(backward_upsample3);
-		time_end(elapsed_activations_backward);
-		time_start();
-		auto backward_conv3 = conv3.backward(backward_relu3);
+		auto backward_conv5 = conv5.backward(backward_loss);
 		time_end(elapsed_conv_backward);
 
 		time_start();
-		auto backward_maxpool2 = maxpool2.backward(backward_conv3);
-		time_end(elapsed_maxpool_backward);
-		auto backward_add2 = backward_maxpool2 + backward_split4.second;
+		auto backward_up4 = up4.backward(backward_conv5);
+		time_end(elapsed_up_backward);
 		time_start();
-		auto backward_relu2 = relu2.backward(backward_add2);
-		time_end(elapsed_activations_backward);
-		time_start();
-		auto backward_conv2 = conv2.backward(backward_relu2);
+		auto backward_conv4 = conv4.backward(backward_up4);
 		time_end(elapsed_conv_backward);
 
 		time_start();
-		auto backward_maxpool1 = maxpool1.backward(backward_conv2);
-		time_end(elapsed_maxpool_backward);
-		auto backward_add1 = backward_maxpool1 + backward_split5.second;
+		auto backward_up3 = up3.backward(backward_conv4);
+		time_end(elapsed_up_backward);
 		time_start();
-		auto backward_relu1 = relu1.backward(backward_add1);
-		time_end(elapsed_activations_backward);
-		time_start();
-		auto backward_conv1 = conv1.backward(backward_relu1);
+		auto backward_conv3 = conv3.backward(backward_up3);
 		time_end(elapsed_conv_backward);
 
-#if 1
-		if (iter != 0 && iter % 100 == 0) {
-			learning_rate *= 0.5;
-			printf("iter. %d:\tlearning_rate: %e\n", iter, learning_rate);
-			conv1.optimizer->learning_rate = learning_rate;
-			conv2.optimizer->learning_rate = learning_rate;
-			conv3.optimizer->learning_rate = learning_rate;
-			conv4.optimizer->learning_rate = learning_rate;
-			conv5.optimizer->learning_rate = learning_rate;
-		}
-#endif
+		time_start();
+		auto backward_down2 = down2.backward(backward_conv3, backward_conv4);
+		time_end(elapsed_down_backward);
+		time_start();
+		auto backward_conv2 = conv2.backward(backward_down2);
+		time_end(elapsed_conv_backward);
+
+		time_start();
+		auto backward_down1 = down1.backward(backward_conv2, backward_conv5);
+		time_end(elapsed_down_backward);
+		time_start();
+		auto backward_conv1 = conv1.backward(backward_down1);
+		time_end(elapsed_conv_backward);
+
+		// waitForWeightsStream();
 	}
 
+	cudaErrchk(cudaDeviceSynchronize());
 	cudaErrchk(cudaEventDestroy(start));
 	cudaErrchk(cudaEventDestroy(stop));
 	printf("convolution forward:   %.3fms\n", elapsed_conv_forward / 5.);
 	printf("convolution backward:  %.3fms\n", elapsed_conv_backward / 5.);
-	printf("relu/softmax forward:  %.3fms\n", elapsed_activations_forward / 5.);
-	printf("relu/softmax backward: %.3fms\n", elapsed_activations_backward / 5.);
-	printf("maxpool forward:       %.3fms\n", elapsed_maxpool_forward / 2.);
-	printf("maxpool backward:      %.3fms\n", elapsed_maxpool_backward / 2.);
-	printf("upsample forward:      %.3fms\n", elapsed_upsample_forward / 2.);
-	printf("upsample backward:     %.3fms\n", elapsed_upsample_backward / 2.);
-	printf("split:                 %.3fms\n", elapsed_split / 2.);
-	printf("concat:                %.3fms\n", elapsed_concat / 2.);
+	printf("down-layer forward:    %.3fms\n", elapsed_down_forward / 2.);
+	printf("down-layer backward:   %.3fms\n", elapsed_down_backward / 2.);
+	printf("up-layer forward:      %.3fms\n", elapsed_up_forward / 2.);
+	printf("up-layer backward:     %.3fms\n", elapsed_up_backward / 2.);
 }
 
 static void bench_mnist(int iterations) {
 	int batch_size = 15;
-	float learning_rate = 0.01;
+	float learning_rate = 0.001;
 
 	/* 32x32 */
-	Conv conv1(1, 16, 3);
-	ReLU relu1;
+	ConvReLU conv1(1, 16, 3);
 	MaxPool pool1(2);
 
 	/* 16x16 */
-	Conv conv2(16, 32, 3);
-	ReLU relu2;
+	ConvReLU conv2(16, 32, 3);
 	MaxPool pool2(2);
 
 	/* 8x8 */
-	Conv conv3(32, 64, 3);
-	ReLU relu3;
+	ConvReLU conv3(32, 64, 3);
 	MaxPool pool3(8);
 
 	/*1x1*/
-	Conv conv4(64, 10, 1);
-	SoftMax softmax;
+	ConvSoftMax conv4(64, 10);
 
 	PerPixelCELoss loss;
 	conv1.optimizer = new Sgd(learning_rate);
@@ -403,15 +303,15 @@ static void bench_mnist(int iterations) {
 	uniformRandomInit(-0.05, 0.05, conv3.weights, conv3.bias);
 	uniformRandomInit(-0.05, 0.05, conv4.weights, conv4.bias);
 
-	MNISTLoader mnist("../data/mnist-train.txt", batch_size);
-	auto data = mnist.loadBatch();
+	MNISTLoader mnist("../data/mnist/mnist-train.txt", batch_size);
+	// auto data = mnist.loadBatch();
 	for (int iter = 0; iter < iterations; iter++) {
-		// auto data = mnist.loadBatch();
+		auto data = mnist.loadBatch();
 
-		auto t1 = pool1.forward(relu1.forward(conv1.forward(data.first)));
-		auto t2 = pool2.forward(relu2.forward(conv2.forward(t1)));
-		auto t3 = pool3.forward(relu3.forward(conv3.forward(t2)));
-		auto pred = softmax.forward(conv4.forward(t3));
+		auto t1 = pool1.forward(conv1.forward(data.first));
+		auto t2 = pool2.forward(conv2.forward(t1));
+		auto t3 = pool3.forward(conv3.forward(t2));
+		auto pred = conv4.forward(t3);
 
 		if (iter % 20 == 0) {
 			float l = sum(loss.forward(pred, data.second));
@@ -420,10 +320,10 @@ static void bench_mnist(int iterations) {
 		}
 
 		auto e = loss.backward(pred, data.second);
-		auto e4 = conv4.backward(softmax.backward(e));
-		auto e3 = conv3.backward(relu3.backward(pool3.backward(e4)));
-		auto e2 = conv2.backward(relu2.backward(pool2.backward(e3)));
-		auto e1 = conv1.backward(relu1.backward(pool1.backward(e2)));
+		auto e4 = conv4.backward(e);
+		auto e3 = conv3.backward(pool3.backward(e4));
+		auto e2 = conv2.backward(pool2.backward(e3));
+		auto e1 = conv1.backward(pool1.backward(e2));
 	}
 }
 
@@ -434,6 +334,7 @@ static void test_unet(int iterations) {
 	ConvReLU conv_0_1(1, 2, 3);
 	ConvReLU conv_0_2(2, 4, 3);
 	MaxPool pool_0(2);
+
 
 	ConvReLU conv_1_1(4, 8, 3);
 	MaxPool pool_1(2);
@@ -460,7 +361,7 @@ static void test_unet(int iterations) {
 	PerPixelCELoss loss;
 
 
-	if (_access("./weights/unet/conv-0-1.weights", F_OK) != 0) {
+	if (access("./weights/unet/conv-0-1.weights", F_OK) != 0) {
 		float init = 0.5;
 		printf("Initializing weights from %f to %f...\n", -init, init);
 		uniformRandomInit(-init, init, conv_0_1.weights, conv_0_1.bias);

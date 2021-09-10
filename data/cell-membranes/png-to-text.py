@@ -34,8 +34,12 @@ def calculate_mean(images_dir):
     print("std: ", np.std(np.asarray(images)))
 
 
-img2text('./train-images-small', 'train-', normalize=False)
-img2text('./train-labels-small', 'label-', normalize=False)
+if os.name == 'nt':
+    img2text('./train-images-small', 'train-', normalize=False)
+    img2text('./train-labels-small', 'label-', normalize=False)
+else:
+    img2text('./train-images', 'train-', normalize=False)
+    img2text('./train-labels', 'label-', normalize=False)
 
 
 

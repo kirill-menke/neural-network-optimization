@@ -29,10 +29,15 @@ all: test
 ./utils.o:       ./utils.cpp      ./utils.h       ./tensor.h
 ./tensor.o:      ./tensor.cu      ./tensor.h
 
+./conv-relu.o:    ./conv-relu.cu    ./conv-relu.h    ./tensor.h ./optimizer.h
+./conv-softmax.o: ./conv-softmax.cu ./conv-softmax.h ./tensor.h ./optimizer.h
+./unet-down.o:    ./unet-down.cu    ./unet-down.h    ./tensor.h
+./unet-up.o:      ./unet-up.cu      ./unet-up.h      ./tensor.h
+
 ./test.o: $(shell find . -name '*.h')
 
 test: $(OBJFILES)
-	@mkdir -p ./weights/unet
+	@mkdir -p ./weights/unet ./weights/mnist
 	$(CUXX) $(CUFLAGS) -o $@ $^
 
 clean:
