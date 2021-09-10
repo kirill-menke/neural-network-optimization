@@ -15,9 +15,14 @@
 
 
 int main(int argc, const char* argv[]) {
-	
+
+	if (argc != 2) {
+		fprintf(stderr, "usage: %s <iterations>\n", argv[0]);
+		return EXIT_FAILURE;
+	}
+
 	/* CNN parameters */
-	const int iterations = 10000;
+	const int iterations = atoi(argv[1]);
 	const int batch_size = 8;
 	const float learning_rate = 0.001f;
 
