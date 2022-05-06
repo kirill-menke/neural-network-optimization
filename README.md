@@ -1,14 +1,14 @@
 
 # Efficient CNN and U-Net Implementation using C++/CUDA
 ## Description
-This project was developed in collaboration with [Lou Knauer](https://github.com/iamlouk). It contains an efficient CNN implementation in C++ and U-Net implementation in C++/ CUDA. All necessary components were implemented from scratch twice: Once on the CPU using the C++ standard library and the [Eigen::Tensor](https://eigen.tuxfamily.org/dox/unsupported/eigen_tensors.html) class and another time on the GPU using CUDA. Especially the computationally intensive layers which  have a high parallelization capability (e.g. Convolution, MaxPooling) benefit from the CUDA implementation. Also, several optimization strategies were applied in CUDA to improve the runtime, which are listed in more detail below.
+This project was developed in collaboration with [Lou Knauer](https://github.com/iamlouk). It contains an efficient CNN implementation in C++ and U-Net implementation in C++/ CUDA. All necessary components were implemented from scratch twice: Once on the CPU using the C++ standard library and the [Eigen::Tensor](https://eigen.tuxfamily.org/dox/unsupported/eigen_tensors.html) class and a second time on the GPU using CUDA. Especially the computationally intensive layers which  have a high parallelization capability (e.g. Convolution, MaxPooling) benefit from the CUDA implementation. Also, several optimization strategies were applied in CUDA to improve the runtime, which are listed in more detail below.
 
-The implementation of an exemplary CNN and U-Net architecture can be found in `cpu_cnn/src/main.cpp` and `gpu_unet/main.cpp`, respectively.
+The implementation of an exemplary CNN and U-Net architecture can be found in `cpu_cnn/src/main.cpp` and `gpu_unet/main.cpp`, respectively. They use the data provided in `data/mnist` and `data/cell-membranes` for training and testing.
 
-The project can be compiled and run on both Linux and Windows but requires an NVIDIA graphics card to run the CUDA implementation of U-Net. The folders `./cpu-cnn` and `./gpu_unet` contain the source code, the Makefiles to build under Linux and the Visual Studio project file for Windows.
+The project can be compiled and run on both Linux and Windows but requires an NVIDIA graphics card to run the CUDA implementation of U-Net. The folders `./cpu-cnn` and `./gpu_unet` contain the source code, the Makefiles to build under Linux and the Visual Studio project file for Windows. The solution file `HPC.sln` can be used to open the project within Visual Studio out of the box.
 
 ## Features
-The following components are implemented in separate classes or files and can be used to construct a CNN or U-Net architecture:
+The following components are implemented in separate classes or files and can be used to define a CNN or U-Net architecture:
 
 - ***Layers***
   - Convolution
@@ -37,14 +37,14 @@ The following components are implemented in separate classes or files and can be
   - CrossEntropyLoss
 
 ## Optimization Techniques
-We improved the performance on the GPU by using the following optimization strategies:
+We implemented the following optimization strategies to improve the performance on the GPU:
 - ***Memory Coalescing***: Consecutive CUDA threads access consecutive memory adresses within a tensor which reduces memory loads
 - ***Layer Merging***: Merged Convolution + ReLU and Convolution + Softmax in one kernel to reduce kernel calls and iterations over tensor
-- ***Increasing Occupancy***: Increasing throughput by increasing occupancy of SMs to enable latency hiding
+- ***Increasing Occupancy***: Increasing throughput by increasing occupancy of SMs which enables latency hiding
 
 ## Benchmarks
 We benchmarked the performance gain achieved by layer merging compared to using separate layers and iterating over the tensor twice:
-
+![Conv+ReLU](./benchmarks/ConvReLU.png) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ![Conv+Softmax](./benchmarks/ConvSoftmax.png)
 
 ## How to Build and Run
 
