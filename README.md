@@ -44,6 +44,8 @@ We implemented the following optimization strategies to improve the performance 
 
 ## Benchmarks
 We benchmarked the performance gain achieved by layer merging compared to using separate layers and iterating over the tensor twice:
+
+
 ![Conv+ReLU](./benchmarks/ConvReLU.png) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ![Conv+Softmax](./benchmarks/ConvSoftmax.png)
 
 ## How to Build and Run
