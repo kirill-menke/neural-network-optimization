@@ -1,7 +1,54 @@
 
-# Repository for the HPC-Project 2021 by Kirill Menke and Lou Knauer
+# Efficient CNN and U-Net Implementation using C++/CUDA
+## Description
+This project was developed in collaboration with [Lou Knauer](https://github.com/iamlouk). It contains an efficient CNN implementation in C++ and U-Net implementation in C++/ CUDA. All necessary components were implemented from scratch twice: Once on the CPU using the C++ standard library and the [Eigen::Tensor](https://eigen.tuxfamily.org/dox/unsupported/eigen_tensors.html) class and another time on the GPU using CUDA. Especially the computationally intensive layers which  have a high parallelization capability (e.g. Convolution, MaxPooling) benefit from the CUDA implementation. Also, several optimization strategies were applied in CUDA to improve the runtime, which are listed in more detail below.
 
-## U-Net CUDA Implementation:
+The implementation of an exemplary CNN and U-Net architecture can be found in `cpu_cnn/src/main.cpp` and `gpu_unet/main.cpp`, respectively.
+
+The project can be compiled and run on both Linux and Windows but requires an NVIDIA graphics card to run the CUDA implementation of U-Net. The folders `./cpu-cnn` and `./gpu_unet` contain the source code, the Makefiles to build under Linux and the Visual Studio project file for Windows.
+
+## Features
+The following components are implemented in separate classes or files and can be used to construct a CNN or U-Net architecture:
+
+- ***Layers***
+  - Convolution
+  - MaxPooling
+  - Flatten 
+  - Dropout
+  - Up- and DownScaling (CUDA only)
+  
+
+- ***Activations***
+  - ReLU
+  - SoftMax
+  
+- ***Optimizers***
+  - SGD
+  - SGDWithMomentum
+  - Adam
+  
+- ***Initializers***
+  - Constant
+  - UniformRandom
+  - Xavier/ Glorot
+  - He 
+  
+- ***Loss Functions***
+  - CrossEntropyLoss
+
+## Optimization Techniques
+We improved the performance on the GPU by using the following optimization strategies:
+- ***Memory Coalescing***: Consecutive CUDA threads access consecutive memory adresses within a tensor which reduces memory loads
+- ***Layer Merging***: Merged Convolution + ReLU and Convolution + Softmax in one kernel to reduce kernel calls and iterations over tensor
+- ***Increasing Occupancy***: Increasing throughput by increasing occupancy of SMs to enable latency hiding
+
+## Benchmarks
+We benchmarked the performance gain achieved by layer merging compared to using separate layers and iterating over the tensor twice:
+
+
+## How to Build and Run
+
+### U-Net CUDA Implementation:
 
 The first thing that has to be done before using the U-Net is to generate the
 required training data. For this, do the following:
@@ -25,7 +72,7 @@ and the learning rate in the code of the the respective function you want to cal
 Every function will print a loss every few iterations and depending on the called function also a form of accuracy.
 Most functions will at the end also print how long each layers forward/backward pass took.
 
-### How to build and run on Linux
+#### How to build and run on Linux
 To build on Linux, go to the `./gpu_unet` folder. There, all the source code for the Cuda implementation
 can be found. This directory also contains a `Makefile`. The default target builds the CNN,
 so simply run `make -j 8` in that directory.
@@ -33,7 +80,7 @@ so simply run `make -j 8` in that directory.
 The binary will be `./gpu_unet/test`. The first CLI argument it needs is the name of the CNN you want to run,
 and the second one is how many training iterations you wish to do.
 
-```
+```bash
 cd ./gpu_unet
 make clean
 make -j 8
@@ -58,7 +105,7 @@ make -j 8
 
 ```
 
-### How to build and run on Windows
+#### How to build and run on Windows
 On Windows, Visual Studio 2019 with its integrated compiler was used to compile and run the code.
 You can open the provided solution file `./HPC.sln` within VS which includes the `gpu_unet` project 
 and build it out of the box. The command line arguments which are passed via the CLI on Linux (see above),
@@ -66,26 +113,26 @@ can be specified in the project properties of `gpu_unet`: `Properties > Debuggin
 
 
 
-## CNN C++ Implementation:
+### CNN C++ Implementation:
 
 You can change all hyperparameters and the CNN architecture by modifying the
 `./cpu_cnn/src/main.py` file.
 The training data used by this CNN is MNIST and located in `data\mnist\mnist-train.txt`.
 This is a textfile where each row corresponds to a flat 32 x 32 image.
 
-### How to build and run on Linux
+#### How to build and run on Linux
 To build on Linux, go to the `./cpu_cnn` folder, which contains all the source code of the CPU CNN.
 This folder also contains a `Makefile`. The default target builds the CNN,
 so simply run `make -j 8` in that directory.
 
 The binary will be `./cpu_cnn/main` and requires the number of iterations as its first argument:
-```
+```bash
 # Runs the CNN with the MNIST dataset doing 1000 iterations
 ./main 1000
 ```
 
 
-### How to build and run on Windows
+#### How to build and run on Windows
 On Windows, Visual Studio 2019 with its integrated compiler was used to compile and run the code.
 You can open the provided solution file `./HPC.sln` within VS which includes the `cpu_cnn` project
 and build it out of the box. The number of iterations which is passed via the CLI on Linux (see above),
